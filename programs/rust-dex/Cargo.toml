@@ -9,15 +9,17 @@ crate-type = ["cdylib", "lib"]
 name = "rust_dex"
 
 [features]
-default = []
-cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
-
+cpi = ["no-entrypoint"]
+default = []
+custom-heap = []
+custom-panic = []
+anchor-debug = []
 
 [dependencies]
-anchor-lang = "0.31.1"
-solana-program = "2.3.0"
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+solana-program = { workspace = true }
 
