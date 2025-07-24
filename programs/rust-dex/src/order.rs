@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::hash::{Hasher};
+use anchor_lang::solana_program::hash::Hasher;
 use anchor_lang::prelude::*;
 
 #[derive(Debug, Clone, Eq, PartialEq, BorshDeserialize, BorshSerialize)]

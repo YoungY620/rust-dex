@@ -1,12 +1,12 @@
 [workspace]
+resolver = "2"
 members = [
     "programs/*"
 ]
 
 [workspace.dependencies]
-anchor-lang = "0.28.0"
-anchor-spl = "0.28.0"
-solana-program = "~1.16.18"
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
 
 [profile.release]
 overflow-checks = true

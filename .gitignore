@@ -5,3 +5,5 @@ target
 node_modules
 test-ledger
 .yarn
+*.md
+!README.md

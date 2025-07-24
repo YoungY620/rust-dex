@@ -1,19 +1,21 @@
 use std::{fmt::Debug, result::Result};
 
-use anchor_lang::prelude::{borsh::{BorshDeserialize, BorshSerialize}, *};
+use borsh::{BorshDeserialize, BorshSerialize};
+use anchor_lang::prelude::*;
 
 use crate::orderqueue::{OrderQueue};
 use crate::order::{Order, OrderSide, OrderType};
+use crate::sequencer::Sequencer;
 
 #[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub enum OrderSuccess {
     Accepted{
-        order_id: u128,
+        order_id: u64,
         order_type: OrderType,
         block_time: i64        
     },
     Filled{
-        order_id: u128,
+        order_id: u64,
         side: OrderSide,
         order_type: OrderType,
         price: f64,
@@ -21,7 +23,7 @@ pub enum OrderSuccess {
         block_time: i64
     },
     PartialFilled{
-        order_id: u128,
+        order_id: u64,
         side: OrderSide,
         order_type: OrderType,
         price: f64,
@@ -34,22 +36,22 @@ pub enum OrderSuccess {
     }
 }
 
-#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub enum OrderFailed {
     ValidationFailed(String),
     DuplicateOrderID(u64),
-    NoMatch(u128),
+    NoMatch(u64),
     OrderNotFound(u64),
 }
 
 type OrderProcessResult = Vec<Result<OrderSuccess, OrderFailed>>;
 
-#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub struct OrderBook {
     pub order_token: Pubkey,
     pub price_order: Pubkey,
     pub buy_queue: OrderQueue,
-    pub sel_queue: OrderQueue
+    pub sel_queue: OrderQueue,
+    pub sequencer: Sequencer
 }
 
 impl OrderBook {
@@ -58,11 +60,14 @@ impl OrderBook {
             order_token,
             price_order,
             buy_queue: OrderQueue::new(),
-            sel_queue: OrderQueue::new()
+            sel_queue: OrderQueue::new(),
+            sequencer: Sequencer::new()
         }
     }
-    
-    pub fn process_order(&mut self, order: Order) -> OrderProcessResult {
+
+    pub fn process_order(&mut self, side: OrderSide, order_type: OrderType, price: f64, quantity: u64, owner: Pubkey) -> OrderProcessResult {
+        let id = self.sequencer.pop_next_id().unwrap_or(0);
+        let order = Order::new(id, side, order_type, price, quantity, owner).unwrap();
         let mut result: OrderProcessResult = Vec::new();
         match order.order_type {
             OrderType::Limit => {
