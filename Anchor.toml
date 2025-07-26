@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-rust_dex = "DxDE9zuCpkBiuJhAYo5een6xMqF34J3jZuRYCodLhVnw"
+rust_dex = "FbCipEZbUmmQt5C9AvcvyMewWt3PtkL5RCLB5McmY2AJ"
 
 [registry]
 url = "https://api.apr.dev"

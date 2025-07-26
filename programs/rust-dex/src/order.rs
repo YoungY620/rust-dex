@@ -1,33 +1,37 @@
 use std::cmp::Ordering;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::hash::{Hasher};
+use anchor_lang::solana_program::hash::{Hasher};
 use anchor_lang::prelude::*;
 
-#[derive(Debug, Clone, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
+#[repr(u8)]
 pub enum OrderSide {
     Buy,
     Sell
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
+#[repr(u8)]
 pub enum OrderType {
     Limit,
     Market
 }
 
-#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+#[repr(C, packed)]
+#[zero_copy]
+#[derive(Debug)]
 pub struct Order {
     pub id: u128,
-    pub side: OrderSide,
-    pub order_type: OrderType,
-    pub price: f64,
+    pub side: u8,        // Use u8 instead of OrderSide
+    pub order_type: u8,  // Use u8 instead of OrderType
+    pub price: u128,
     pub quantity: u64,
     pub owner: Pubkey
 }
 
 impl Order {
-    pub fn new(side: OrderSide, order_type: OrderType, price: f64, quantity: u64, owner: Pubkey) -> Result<Self> {
+    pub fn new(side: OrderSide, order_type: OrderType, price: u128, quantity: u64, owner: Pubkey) -> Result<Self> {
         let clock = Clock::get()?;
         
         let mut hasher = Hasher::default();
@@ -45,11 +49,11 @@ impl Order {
         
         Ok(Self {
             id: priority,
-            side,
-            order_type,
+            side: side as u8,
+            order_type: order_type as u8,
             price,
             quantity,
-            owner
+            owner,
         })
     }
 }
@@ -66,7 +70,11 @@ impl OrderIndex {
         Self {
             id: order.id,
             price: order.price as u128,
-            order_side: order.side.clone()
+            order_side: match order.side {
+                x if x == OrderSide::Buy as u8 => OrderSide::Buy,
+                x if x == OrderSide::Sell as u8 => OrderSide::Sell,
+                _ => panic!("Invalid order side value"),
+            },
         }
     }
 }
