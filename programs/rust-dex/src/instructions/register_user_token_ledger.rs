@@ -36,8 +36,8 @@ pub struct RegisterUserTokenLedger<'info> {
 
 #[account]
 pub struct IndividualTokenLedgerAccount {
-    pub available_balance: u128,
-    pub locked_balance: u128,
+    pub available_balance: u64,
+    pub locked_balance: u64,
     pub mint_account: Pubkey,
     pub user_token_account: Pubkey,
     pub bump: u8,

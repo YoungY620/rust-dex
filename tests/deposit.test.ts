@@ -236,4 +236,60 @@ describe("rust-dex: deposit", () => {
     }
     expect(errorCaught).to.be.true;
   });
+  it("Should fail when unauthorized user tries to deposit", async () => {
+      // 创建一个未授权的用户
+      const unauthorizedUser = Keypair.generate();
+      
+      // 为未授权用户充值
+      const airdrop = await provider.connection.requestAirdrop(
+        unauthorizedUser.publicKey,
+        5 * anchor.web3.LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(airdrop);
+  
+      // 创建未授权用户的 token account
+      const unauthorizedUserTokenAccount = await createAssociatedTokenAccount(
+        provider.connection,
+        unauthorizedUser,
+        mint,
+        unauthorizedUser.publicKey
+      );
+        // Mint tokens to unauthorized user's token account
+        const amount = depositAmount * 10 ** 9;
+        await mintTo(
+          provider.connection,
+          mintAuthority,
+          mint,
+          unauthorizedUserTokenAccount,
+          mintAuthority,
+          amount
+        );
+        // Derive PDAs for deposit
+        const [vaultTokenLedgerPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("vault_token_ledger"), mint.toBuffer()],
+            program.programId
+            );
+        const [userTokenLedgerPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("individual_token_ledger"), mint.toBuffer(), unauthorizedUser.publicKey.toBuffer()],
+            program.programId
+        );
+        let errorCaught = false;
+        try {
+            await program.methods.deposit(mint, new anchor.BN(amount))
+                .accountsPartial({
+                    vaultTokenLedger: vaultTokenLedgerPda,
+                    userTokenLedger: userTokenLedgerPda,
+                    userTokenAccount: unauthorizedUserTokenAccount,
+                    vaultTokenAccount,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    user: unauthorizedUser.publicKey,
+                    systemProgram: SystemProgram.programId
+                })
+                .signers([unauthorizedUser])
+                .rpc();
+        } catch (err) {
+            errorCaught = true;
+        }   
+        expect(errorCaught).to.be.true;
+    });
 });

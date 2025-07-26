@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use crate::common::MAX_TOKEN_MINTS;
+use crate::common::MAX_PERSONAL_ORDERS;
 
 pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     msg!("Registering user with key: {:?}", ctx.accounts.user.key());
@@ -16,10 +18,6 @@ pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     user_order_book.bump = ctx.bumps.user_order_book;
     Ok(())
 }
-
-
-pub const MAX_TOKEN_MINTS: usize = 32;
-pub const MAX_PERSONAL_ORDERS: usize = 32;
 
 #[account]
 pub struct IndividualLedgerAccount {

@@ -6,6 +6,7 @@ use crate::instructions::*;
 // mod orderqueue;
 mod order;
 mod instructions;
+mod common;
 
 declare_id!("FbCipEZbUmmQt5C9AvcvyMewWt3PtkL5RCLB5McmY2AJ");
 
@@ -31,13 +32,16 @@ pub mod rust_dex {
         instructions::register_user_impl(ctx)
     }
 
+    pub fn register_token_pair(ctx: Context<RegisterTokenPair>, token1: Pubkey, token2: Pubkey) -> Result<()> {
+        instructions::register_token_pair_impl(ctx, token1, token2)
+    }
+
     pub fn deposit(ctx: Context<Deposit>, _mint_account: Pubkey, amount: u64) -> Result<()> {
         instructions::deposit_impl(ctx, _mint_account, amount)
     }
 
     pub fn withdraw(ctx: Context<Withdraw>, _mint_account: Pubkey, amount: u64) -> Result<()> {
-        msg!("Withdraw amount: {}", amount);
-        Ok(())
+        instructions::withdraw_impl(ctx, _mint_account, amount)
     }
 
     pub fn place_limit_order(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: u64, amount: u64) -> Result<()> {
@@ -60,14 +64,6 @@ pub mod rust_dex {
 
 #[derive(Accounts)]
 pub struct Initialize {}
-
-
-#[derive(Accounts)]
-pub struct Withdraw {
-    // Add required accounts here, e.g.:
-    // #[account(mut)]
-    // pub user: Signer<'info>,
-}
 
 #[derive(Accounts)]
 pub struct PlaceLimitOrder {

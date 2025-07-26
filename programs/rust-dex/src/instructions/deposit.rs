@@ -14,6 +14,11 @@ pub fn deposit_impl(ctx: Context<Deposit>, _mint_account: Pubkey, amount: u64) -
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
     token::transfer(cpi_ctx, amount)?;
+    // Update ledger balances
+    let user_ledger = &mut ctx.accounts.user_token_ledger;
+    let vault_ledger = &mut ctx.accounts.vault_token_ledger;
+    user_ledger.available_balance = user_ledger.available_balance.checked_add(amount).unwrap();
+    vault_ledger.total_balance = vault_ledger.total_balance.checked_add(amount).unwrap();
     Ok(())
 }
 

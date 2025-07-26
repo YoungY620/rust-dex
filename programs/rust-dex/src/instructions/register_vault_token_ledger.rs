@@ -11,6 +11,7 @@ pub fn register_vault_token_ledger_impl(ctx: Context<RegisterVaultTokenLedger>) 
     vault_token_ledger.vault_token_account = ctx.accounts.vault_token_account.key();
     vault_token_ledger.bump = ctx.bumps.vault_token_ledger;
     vault_token_ledger.total_balance = 0;
+    vault_token_ledger.authority_bump = ctx.bumps.vault_token_authority;
     Ok(())  
 }
 
@@ -22,7 +23,7 @@ pub struct RegisterVaultTokenLedger<'info> {
         payer = user,
         seeds = [b"vault_token_ledger", mint_account.key().as_ref()],
         bump,
-        space = 8 + 16 + 32 + 32 + 1 
+        space = 8 + 16 + 32 + 32 + 1 + 1 
     )]
     pub vault_token_ledger: Account<'info, VaultTokenLedgerAccount>,
     /// CHECK: This is a PDA used as token authority, derived from seeds
@@ -48,8 +49,9 @@ pub struct RegisterVaultTokenLedger<'info> {
 
 #[account]
 pub struct VaultTokenLedgerAccount {
-    pub total_balance: u128,
+    pub total_balance: u64,
     pub mint_account: Pubkey,
     pub vault_token_account: Pubkey,
     pub bump: u8,
+    pub authority_bump: u8, // authority bump for vault_token_account
 }
