@@ -25,13 +25,16 @@ pub struct Order {
     pub id: u128,
     pub side: u8,        // Use u8 instead of OrderSide
     pub order_type: u8,  // Use u8 instead of OrderType
-    pub price: u128,
+    pub price: f64,
     pub quantity: u64,
-    pub owner: Pubkey
+    pub owner: Pubkey,
+    pub base_token: Pubkey,
+    pub quote_token: Pubkey,
+    pub timestamp: i64,
 }
 
 impl Order {
-    pub fn new(side: OrderSide, order_type: OrderType, price: u128, quantity: u64, owner: Pubkey) -> Result<Self> {
+    pub fn new(side: OrderSide, order_type: OrderType, price: f64, quantity: u64, owner: Pubkey, base_token: Pubkey, quote_token: Pubkey) -> Result<Self> {
         let clock = Clock::get()?;
         
         let mut hasher = Hasher::default();
@@ -54,6 +57,8 @@ impl Order {
             price,
             quantity,
             owner,
+            base_token,
+            quote_token,
         })
     }
 }

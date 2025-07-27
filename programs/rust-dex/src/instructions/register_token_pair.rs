@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::state::{OrderHeap};
-use crate::common::{ErrorCode, ORDER_HEAP_CAPACITY};
+use crate::common::{ErrorCode};
 // pub const ORDER_HEAP_CAPACITY: usize = 1024; // Capacity of the order heap
 
 
@@ -8,17 +8,17 @@ pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey,
     msg!("Registering token pair with base: {:?} and quote: {:?}", token1, token2);
 
     if token1 == token2 {
-        return Err(ErrorCode::InvalidArguments.into());
+        return Err(ErrorCode::InvalidTokenPair.into());
     }
 
     let token_pair = &mut ctx.accounts.token_pair.load_init()?;
-    token_pair.base_token = token1;
-    token_pair.quote_token = token2;
+    token_pair.buy_token = token1;
+    token_pair.sell_token = token2;
     token_pair.order_heap = OrderHeap::new(); // Initialize the order heap
 
     let opposite_pair = &mut ctx.accounts.opposite_pair.load_init()?;
-    opposite_pair.base_token = token2;
-    opposite_pair.quote_token = token1;
+    opposite_pair.buy_token = token2;
+    opposite_pair.sell_token = token1;
     opposite_pair.order_heap = OrderHeap::new();
 
     Ok(())
@@ -26,8 +26,8 @@ pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey,
 
 #[account(zero_copy)]
 pub struct TokenPairAccount {
-    pub base_token: Pubkey,
-    pub quote_token: Pubkey,
+    pub buy_token: Pubkey,
+    pub sell_token: Pubkey,
     pub bump: u8,
     pub pad: [u8; 7], // Padding to make the size 64 
     pub order_heap: OrderHeap,

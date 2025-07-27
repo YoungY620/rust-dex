@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 use crate::instructions::*;
+pub use crate::state::*;
 
-// mod orderbook;
+mod orderbook;
 // mod orderqueue;
 // mod order;
 mod instructions;
@@ -17,6 +18,9 @@ pub mod rust_dex {
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         msg!("Greetings from: {:?}", ctx.program_id);
+        let dex_manager = &mut ctx.accounts.dex_manager;
+        dex_manager.sequence_number = 0;
+        dex_manager.bump = ctx.bumps.dex_manager;
         Ok(())
     }
 
@@ -44,16 +48,18 @@ pub mod rust_dex {
         instructions::withdraw_impl(ctx, _mint_account, amount)
     }
 
-    pub fn place_limit_order(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: u64, amount: u64) -> Result<()> {
-        msg!("Placing limit order: {} {} at price {}", side, amount, price);
-        
-        Ok(())
+    pub fn place_limit_order(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: f64, amount: u64) -> Result<()> {
+        instructions::place_limit_order_impl(ctx, base, quote, side, price, amount)
     }
     pub fn place_market_order(ctx: Context<PlaceMarketOrder>, base: Pubkey, quote: Pubkey, side: String, amount: u64) -> Result<()> {
-        msg!("Placing market order: {} for amount {}", side, amount);
-        
+        instructions::place_market_order_impl(ctx, base, quote, side, amount)
+    }
+
+    pub fn close_dex_manager(ctx: Context<CloseDexManager>) -> Result<()> {
+        msg!("Closing DEX manager account");
         Ok(())
     }
+
     pub fn cancel_order(ctx: Context<CancelOrder>, order_id: u128) -> Result<()> {
         msg!("Cancelling order with ID: {}", order_id);
         
@@ -61,19 +67,55 @@ pub mod rust_dex {
     }
 }
 
+#[account]
+pub struct DexManager {
+    pub sequence_number: u64,
+    pub bump: u8,
+}
 
-#[derive(Accounts)]
-pub struct Initialize {}
-
-#[derive(Accounts)]
-pub struct PlaceLimitOrder {
-    // Add required accounts here
+impl DexManager {
+    pub fn next_sequence_number(&mut self) -> u64 {
+        let Some(next) = self.sequence_number.checked_add(1) else {
+            self.sequence_number = 1;
+            return 1;
+        };
+        self.sequence_number = next;
+        self.sequence_number
+    }
 }
 
 #[derive(Accounts)]
-pub struct PlaceMarketOrder {
-    // Add required accounts here
+pub struct CloseDexManager<'info> {
+    #[account(
+        mut,
+        seeds = [b"dex_manager"],
+        bump = dex_manager.bump,
+        close = user
+    )]
+    pub dex_manager: Account<'info, DexManager>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
+
+
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(
+        init, 
+        payer = user,
+        seeds = [b"dex_manager"], 
+        bump,
+        space = 8 + 8 + 1 // discriminator + sequence_number + bump
+    )]
+    pub dex_manager: Account<'info, DexManager>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+
 
 #[derive(Accounts)]
 pub struct CancelOrder {

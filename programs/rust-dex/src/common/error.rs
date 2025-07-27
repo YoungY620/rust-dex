@@ -6,5 +6,6 @@ pub enum ErrorCode {
     OrderHeapFull, // Order heap is full and cannot accept new orders.
     OrderNotFound, // The specified order was not found in the heap.
 
-    InvalidArguments, // Invalid arguments provided to the instruction.
+    InvalidTokenPair, // Invalid arguments provided to the instruction.
+    InvalidOrderSide, // The order side must be either "buy" or "sell".
 }
