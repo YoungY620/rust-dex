@@ -1,26 +1,36 @@
 use anchor_lang::prelude::*;
+use crate::state::{OrderHeap};
+use crate::common::{ErrorCode, ORDER_HEAP_CAPACITY};
+// pub const ORDER_HEAP_CAPACITY: usize = 1024; // Capacity of the order heap
+
 
 pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey, token2: Pubkey) -> Result<()> {
     msg!("Registering token pair with base: {:?} and quote: {:?}", token1, token2);
 
-    let token_pair: &mut TokenPairAccount = &mut ctx.accounts.token_pair;
+    if token1 == token2 {
+        return Err(ErrorCode::InvalidArguments.into());
+    }
+
+    let token_pair = &mut ctx.accounts.token_pair.load_init()?;
     token_pair.base_token = token1;
     token_pair.quote_token = token2;
-    token_pair.bump = ctx.bumps.token_pair;
+    token_pair.order_heap = OrderHeap::new(); // Initialize the order heap
 
-    let opposite_pair: &mut TokenPairAccount = &mut ctx.accounts.opposite_pair;
+    let opposite_pair = &mut ctx.accounts.opposite_pair.load_init()?;
     opposite_pair.base_token = token2;
     opposite_pair.quote_token = token1;
-    opposite_pair.bump = ctx.bumps.opposite_pair;
+    opposite_pair.order_heap = OrderHeap::new();
 
     Ok(())
 }
 
-#[account]
+#[account(zero_copy)]
 pub struct TokenPairAccount {
     pub base_token: Pubkey,
     pub quote_token: Pubkey,
     pub bump: u8,
+    pub pad: [u8; 7], // Padding to make the size 64 
+    pub order_heap: OrderHeap,
 }
 
 #[derive(Accounts)]
@@ -34,15 +44,17 @@ pub struct RegisterTokenPair<'info> {
         payer = user,
         seeds = [b"token_pair", token1.as_ref(), token2.as_ref()],
         bump,
-        space = 8 + 32 + 32 + 1 // Adjust size based on TokenPairAccount struct size
+        space = 10 * (1024 as usize) // Adjust size based on TokenPairAccount struct size
+        // space = 8 + 32 + 32 + 8 + ((104 + 1) * ORDER_HEAP_CAPACITY + 8) // Adjust size based on TokenPairAccount struct size
     )]
-    pub token_pair: Account<'info, TokenPairAccount>,
+    pub token_pair: AccountLoader<'info, TokenPairAccount>,
     #[account(
         init,
         payer = user,
         seeds = [b"token_pair", token2.as_ref(), token1.as_ref()],
         bump,
-        space = 8 + 32 + 32 + 1 // Adjust size based on TokenPairAccount struct size
+        space = 10 * (1024 as usize) // Adjust size based on TokenPairAccount struct size
+        // space = 8 + 32 + 32 + 8 + ((104 + 1) * ORDER_HEAP_CAPACITY + 8) // Adjust size based on TokenPairAccount struct size
     )]
-    pub opposite_pair: Account<'info, TokenPairAccount>, // Optional, for cross-referencing
+    pub opposite_pair: AccountLoader<'info, TokenPairAccount>,
 }
