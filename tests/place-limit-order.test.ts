@@ -435,91 +435,87 @@ describe("rust-dex: place_limit_order", () => {
     });
   });
 
-  // it("Test insufficient balance error", async () => {
-  //     // 尝试下一个超出可用余额的订单
-  //     const orderPrice = 0.01;
-  //     const excessiveAmount = 10000 * 10 ** 9; // 远超用户余额的数量
+  it("Test insufficient balance error", async () => {
+    // 尝试下一个超出可用余额的订单
+    const orderPrice = 0.01;
+    const excessiveAmount = 10000 * 10 ** 9; // 远超用户余额的数量
 
-  //     // 计算order events PDA
-  //     const [orderEventsPda] = PublicKey.findProgramAddressSync(
-  //         [Buffer.from("order_events"), user1.publicKey.toBuffer()],
-  //         program.programId
-  //     );
+    // 计算order events PDA
+    const [orderEventsPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("order_events"), user1.publicKey.toBuffer()],
+      program.programId
+    );
 
-  //     let errorCaught = false;
-  //     let orderEventsTx = null;
+    let errorCaught = false;
 
-  //     try {
-  //         orderEventsTx = await program.methods
-  //             .placeLimitOrder(baseMint, quoteMint, "buy", orderPrice, new anchor.BN(excessiveAmount))
-  //             .accountsPartial({
-  //                 baseQuoteQueue: tokenPairPda,
-  //                 quoteBaseQueue: oppositePairPda,
-  //                 dexManager: dexManagerPda,
-  //                 orderEvents: orderEventsPda,
-  //                 userBaseTokenLedger: user1BaseTokenLedgerPda,
-  //                 userQuoteTokenLedger: user1QuoteTokenLedgerPda,
-  //                 user: user1.publicKey,
-  //                 systemProgram: SystemProgram.programId,
-  //             })
-  //             .signers([user1])
-  //             .rpc();
+    try {
+      await program.methods
+        .placeLimitOrder(baseMint, quoteMint, "buy", orderPrice, new anchor.BN(excessiveAmount))
+        .accountsPartial({
+          baseQuoteQueue: buyBaseQueuePda,
+          quoteBaseQueue: sellBaseQueuePda,
+          dexManager: dexManagerPda,
+          orderEvents: orderEventsPda,
+          userBaseTokenLedger: user1BaseTokenLedgerPda,
+          userQuoteTokenLedger: user1QuoteTokenLedgerPda,
+          user: user1.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([user1])
+        .rpc();
 
-  //         // 如果没有抛出错误，测试失败
-  //         expect.fail("Expected insufficient balance error");
-  //     } catch (error) {
-  //         console.log("Expected error caught:", error.message);
-  //         errorCaught = true;
-  //         // 检查是否是我们期望的错误类型
-  //         expect(error.message).to.satisfy((msg) =>
-  //             msg.includes("InsufficientBalance")
-  //         );
-  //     }
+      // 如果没有抛出错误，测试失败
+      expect.fail("Expected insufficient balance error");
+    } catch (error) {
+      console.log("Expected error caught:", error.message);
+      errorCaught = true;
+      // 检查是否是我们期望的错误类型
+      expect(error.message).to.satisfy((msg) =>
+        msg.includes("InsufficientBalance")
+      );
+    }
 
-  //     expect(errorCaught).to.be.true;
-  // });
+    expect(errorCaught).to.be.true;
+  });
 
-  // it("Test invalid order side error", async () => {
-  //     const orderPrice = 0.01;
-  //     const orderAmount = 10 * 10 ** 9;
+  it("Test invalid order side error", async () => {
+    const orderPrice = 0.01;
+    const orderAmount = 10 * 10 ** 9;
 
-  //     // 计算order events PDA
-  //     const [orderEventsPda] = PublicKey.findProgramAddressSync(
-  //         [Buffer.from("order_events"), user1.publicKey.toBuffer()],
-  //         program.programId
-  //     );
+    // 计算order events PDA
+    const [orderEventsPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("order_events"), user1.publicKey.toBuffer()],
+      program.programId
+    );
 
-  //     let errorCaught = false;
-  //     let orderEventsTx = null;
+    let errorCaught = false;
 
-  //     try {
-  //         orderEventsTx = await program.methods
-  //             .placeLimitOrder(baseMint, quoteMint, "invalid_side", orderPrice, new anchor.BN(orderAmount))
-  //             .accountsPartial({
-  //                 baseQuoteQueue: tokenPairPda,
-  //                 quoteBaseQueue: oppositePairPda,
-  //                 dexManager: dexManagerPda,
-  //                 orderEvents: orderEventsPda,
-  //                 userBaseTokenLedger: user1BaseTokenLedgerPda,
-  //                 userQuoteTokenLedger: user1QuoteTokenLedgerPda,
-  //                 user: user1.publicKey,
-  //                 systemProgram: SystemProgram.programId,
-  //             })
-  //             .signers([user1])
-  //             .rpc();
+    try {
+      await program.methods
+        .placeLimitOrder(baseMint, quoteMint, "invalid_side", orderPrice, new anchor.BN(orderAmount))
+        .accountsPartial({
+          baseQuoteQueue: buyBaseQueuePda,
+          quoteBaseQueue: sellBaseQueuePda,
+          dexManager: dexManagerPda,
+          orderEvents: orderEventsPda,
+          userBaseTokenLedger: user1BaseTokenLedgerPda,
+          userQuoteTokenLedger: user1QuoteTokenLedgerPda,
+          user: user1.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([user1])
+        .rpc();
 
-  //         expect.fail("Expected invalid order side error");
-  //     } catch (error) {
-  //         console.log("Expected error caught:", error.message);
-  //         errorCaught = true;
-  //         // 检查是否是我们期望的错误类型
-  //         expect(error.message).to.satisfy((msg) =>
-  //             msg.includes("InvalidOrderSide")
-  //         );
-  //     }
+      expect.fail("Expected invalid order side error");
+    } catch (error) {
+      console.log("Expected error caught:", error.message);
+      errorCaught = true;
+      // 检查是否是我们期望的错误类型
+      expect(error.message).to.satisfy((msg) =>
+        msg.includes("InvalidOrderSide")
+      );
+    }
 
-
-
-  //     expect(errorCaught).to.be.true;
-  // });
+    expect(errorCaught).to.be.true;
+  });
 });
