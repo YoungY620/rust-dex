@@ -9,4 +9,7 @@ pub enum ErrorCode {
 
     InvalidTokenPair, // Invalid arguments provided to the instruction.
     InvalidOrderSide, // The order side must be either "buy" or "sell".
+    EventListAlreadyInUse, // The event list is already in use and cannot be opened again.
+    EventListClosed, // The event list is closed and cannot be consumed.
+    InvalidEventType, // The event type is invalid.
 }

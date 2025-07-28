@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{OrderHeap};
-use crate::common::{ErrorCode};
+
+pub const TOKEN_PAIR_SEED: &[u8] = b"token_pair";
 
 #[account(zero_copy)]
 pub struct TokenPairAccount {

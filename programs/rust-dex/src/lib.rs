@@ -55,7 +55,11 @@ pub mod rust_dex {
         instructions::place_market_order_impl(ctx, base, quote, side, amount)
     }
 
-    pub fn close_dex_manager(ctx: Context<CloseDexManager>) -> Result<()> {
+    pub fn consume_events(ctx: Context<ConsumeEvents>) -> Result<()> {
+        instructions::consume_events_impl(ctx)
+    }
+
+    pub fn close_dex_manager(_ctx: Context<CloseDexManager>) -> Result<()> {
         msg!("Closing DEX manager account");
         Ok(())
     }
@@ -67,28 +71,13 @@ pub mod rust_dex {
     }
 }
 
-#[account]
-pub struct DexManager {
-    pub sequence_number: u64,
-    pub bump: u8,
-}
 
-impl DexManager {
-    pub fn next_sequence_number(&mut self) -> u64 {
-        let Some(next) = self.sequence_number.checked_add(1) else {
-            self.sequence_number = 1;
-            return 1;
-        };
-        self.sequence_number = next;
-        self.sequence_number
-    }
-}
 
 #[derive(Accounts)]
 pub struct CloseDexManager<'info> {
     #[account(
         mut,
-        seeds = [b"dex_manager"],
+        seeds = [DEX_MANAGER_SEED],
         bump = dex_manager.bump,
         close = user
     )]
@@ -103,7 +92,7 @@ pub struct Initialize<'info> {
     #[account(
         init, 
         payer = user,
-        seeds = [b"dex_manager"], 
+        seeds = [DEX_MANAGER_SEED], 
         bump,
         space = 8 + 8 + 1 // discriminator + sequence_number + bump
     )]

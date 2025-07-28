@@ -4,6 +4,9 @@ use crate::{common::{ErrorCode, OrderRequest, OrderType},
     state::{OrderHeap, EventList}, DexManager};
 use crate::state::{IndividualTokenLedgerAccount, TokenPairAccount};
 use crate::instructions::common::{token_pair_queue_logging, convert_to_event_list};
+use crate::state::ORDER_EVENTS_SEED;
+use crate::state::DEX_MANAGER_SEED;
+use crate::state::TOKEN_PAIR_SEED;
 
 pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: f64, amount: u64) -> Result<()> {
     msg!("Placing limit order: {} for amount {}", side, amount);
@@ -67,13 +70,12 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
     let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
     let event_list: &mut EventList = &mut ctx.accounts.order_events;
-    event_list.in_use = 1; // Reset in-use events count
-    event_list.length = 0; // Reset length of events
-    event_list.token_buy = token_buy;
-    event_list.token_sell = token_sell;
+
     let next_order_id = ctx.accounts.dex_manager.next_sequence_number();
-    event_list.order_id = next_order_id;
-    
+    if let Err(e) = event_list.open(ctx.accounts.user.key(), token_buy, token_sell, next_order_id) {
+        return Err(e);
+    }
+
     let order_request = OrderRequest::new(
         next_order_id,
         buy_amount,
@@ -108,26 +110,27 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
 pub struct PlaceLimitOrder<'info> {
     #[account(
         mut,
-        seeds = [b"token_pair", base.as_ref(), quote.as_ref()],
+        seeds = [TOKEN_PAIR_SEED, base.as_ref(), quote.as_ref()],
         bump,
     )]
     pub base_quote_queue: AccountLoader<'info, TokenPairAccount>,
     #[account(
         mut,
-        seeds = [b"token_pair", quote.as_ref(), base.as_ref()],
+        seeds = [TOKEN_PAIR_SEED, quote.as_ref(), base.as_ref()],
         bump,
     )]
     pub quote_base_queue: AccountLoader<'info, TokenPairAccount>,
     #[account(
         mut,
-        seeds = [b"dex_manager"],
+        seeds = [DEX_MANAGER_SEED],
         bump,
     )]
     pub dex_manager: Account<'info, DexManager>,
     #[account(
         mut,
-        seeds = [b"order_events", user.key().as_ref()],
+        seeds = [ORDER_EVENTS_SEED, user.key().as_ref()],
         bump = order_events.bump,
+        has_one = user,
         // space = 8 + (MAX_EVENTS * (32 + 8 + 8) + 32 + 32 + 8 + 8) // Adjust size based on EventList struct size
     )]
     pub order_events: Box<Account<'info, EventList>>,

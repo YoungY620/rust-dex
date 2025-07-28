@@ -4,6 +4,9 @@ use crate::common::MAX_TOKEN_MINTS;
 use crate::state::EventList;
 use crate::state::IndividualLedgerAccount;
 use crate::state::UserOrderbook;
+use crate::state::ORDER_EVENTS_SEED;
+use crate::state::INDIVIDUAL_LEDGER_SEED;
+use crate::state::USER_ORDERBOOK_SEED;
 
 pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     msg!("Registering user with key: {:?}", ctx.accounts.user.key());
@@ -35,7 +38,7 @@ pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     user_events.in_use = 0;
     user_events.bump = ctx.bumps.order_events;
     for i in 0..MAX_EVENTS {
-        user_events.user[i] = Pubkey::default();
+        user_events.oppo_user[i] = Pubkey::default();
         user_events.buy_quantity[i] = 0;
         user_events.sell_quantity[i] = 0;
     }
@@ -50,7 +53,7 @@ pub struct RegisterUser<'info> {
     #[account(
         init,
         payer = user,
-        seeds = [b"user_ledger", user.key().as_ref()],
+        seeds = [INDIVIDUAL_LEDGER_SEED, user.key().as_ref()],
         bump,
         space = 8 + MAX_TOKEN_MINTS * 32 + MAX_TOKEN_MINTS + 2 + 1 // Adjust size based on IndividualLedgerAccount struct size
     )]
@@ -58,7 +61,7 @@ pub struct RegisterUser<'info> {
     #[account(
         init,
         payer = user,
-        seeds = [b"user_orderbook", user.key().as_ref()],
+        seeds = [USER_ORDERBOOK_SEED, user.key().as_ref()],
         bump,
         space = 8 + MAX_TOKEN_MINTS * 16 + MAX_TOKEN_MINTS + 2 + 1 // UserOrderbook: orders[16*32] + next_index[2] + bitmap[32] + bump[1]
     )]
@@ -66,7 +69,7 @@ pub struct RegisterUser<'info> {
     #[account(
         init,
         payer = user,
-        seeds = [b"order_events", user.key().as_ref()],
+        seeds = [ORDER_EVENTS_SEED, user.key().as_ref()],
         bump,
         space = 8 + (MAX_EVENTS * (32 + 8 + 8) + 32 + 32 + 8 + 8 + 1 + 1) // EventList: user[32*32] + buy_quantity[8*32] + sell_quantity[8*32] + token_buy[32] + token_sell[32] + order_id[8] + length[8] + pad[6] + in_use[1] + bump[1]
     )]

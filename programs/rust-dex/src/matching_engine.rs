@@ -13,17 +13,14 @@ pub enum OrderSuccess {
     },
     Filled{
         who: Pubkey,
+        oppo_user: Pubkey,
         order_id: u64,
+        oppo_order_id: u64,
         order_type: OrderType,
         sell_quantity: u64,
         buy_quantity: u64,
-    },
-    PartialFilled{
-        who: Pubkey,
-        order_id: u64,
-        order_type: OrderType,
-        sell_quantity: u64,
-        buy_quantity: u64,
+        filled: bool,
+        oppo_filled: bool,
     },
     Cancelled{
         order_id: u64,
@@ -32,9 +29,27 @@ pub enum OrderSuccess {
 
 #[derive(Debug, Clone)]
 pub enum OrderFailure {
-    TooManyEvents(u64),
-    OrderHeapFull(u64),
-    NoMatch(u64),
+    TooManyEvents{
+        who: Pubkey,
+        order_id: u64,
+        order_type: OrderType,
+        sell_quantity: u64,
+        buy_quantity: u64,
+    },
+    OrderHeapFull{
+        who: Pubkey,
+        order_id: u64,
+        order_type: OrderType,
+        sell_quantity: u64,
+        buy_quantity: u64,
+    },
+    NoMatch{
+        who: Pubkey,
+        order_id: u64,
+        order_type: OrderType,
+        sell_quantity: u64,
+        buy_quantity: u64,
+    },
     OrderNotFound(u64),
 }
 
@@ -98,7 +113,13 @@ impl<'a> MatchingEngine<'a> {
         if let Some(sell_order) = sell_queue.get_best_order() {
             let match_available = sell_order.buy_price() >= order.sell_price();
             if result.len() + 2 > MAX_EVENTS  {
-                result.push(Result::Err(OrderFailure::TooManyEvents(result.len() as u64)));
+                result.push(Result::Err(OrderFailure::TooManyEvents{
+                    who: order.owner,
+                    order_id: order.id,
+                    order_type: OrderType::Limit,
+                    sell_quantity: order.sell_quantity,
+                    buy_quantity: order.buy_quantity,
+                }));
                 return; 
             }
             if match_available {
@@ -109,12 +130,12 @@ impl<'a> MatchingEngine<'a> {
                 }
             }else {
                 if let Err(_) = buy_queue.add_order(order) {
-                    result.push(Result::Err(OrderFailure::OrderHeapFull(order.id)));
+                    result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
                 }
             }
         } else {
             if let Err(_) = buy_queue.add_order(order) {
-                result.push(Result::Err(OrderFailure::OrderHeapFull(order.id)));
+                result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
             }
         }
     }
@@ -129,45 +150,39 @@ impl<'a> MatchingEngine<'a> {
         let oppo_buy_quantity = best_sell_order.buy_quantity;
         if order.sell_quantity < oppo_buy_quantity {
             let buy_quantity = order.sell_quantity * best_sell_order.buy_price() as u64;
+                let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
+                oppo_sell_order_mut.sell_quantity -= buy_quantity;
+                oppo_sell_order_mut.buy_quantity -= order.sell_quantity;
             result.push(Result::Ok(OrderSuccess::Filled { 
                 who: order.owner,
-                order_id: order.id, 
-                order_type: order_type, 
+                oppo_user: oppo_sell_order_mut.owner,
+                order_id: order.id,
+                oppo_order_id: oppo_sell_order_mut.id,
+                order_type: order_type,
                 sell_quantity: order.sell_quantity,
                 buy_quantity: buy_quantity,
-            }));
-            let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
-            oppo_sell_order_mut.sell_quantity -= buy_quantity;
-            oppo_sell_order_mut.buy_quantity -= order.sell_quantity;
-            result.push(Result::Ok(OrderSuccess::PartialFilled {
-                who: oppo_sell_order_mut.owner,
-                order_id: oppo_sell_order_mut.id,
-                order_type: OrderType::Limit,
-                sell_quantity: buy_quantity,
-                buy_quantity: order.sell_quantity,
+                filled: true,
+                oppo_filled: false,  // 对方订单未完全成交
             }));
             return true;
         } else if order.sell_quantity > oppo_buy_quantity {
             let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
             
-            result.push(Result::Ok(OrderSuccess::PartialFilled {
+            result.push(Result::Ok(OrderSuccess::Filled {
                 who: order.owner,
+                oppo_user: oppo_sell_order_mut.owner,
                 order_id: order.id,
+                oppo_order_id: oppo_sell_order_mut.id,
                 order_type: order_type,
                 sell_quantity: oppo_sell_order_mut.buy_quantity,
                 buy_quantity: oppo_sell_order_mut.sell_quantity,
+                filled: false,  // 当前订单未完全成交
+                oppo_filled: true,  // 对方订单已完全成交
             }));
             order.sell_quantity -= oppo_sell_order_mut.buy_quantity;
             if order_type == OrderType::Limit {
                 order.buy_quantity -= oppo_sell_order_mut.sell_quantity;
             }
-            result.push(Result::Ok(OrderSuccess::Filled {
-                who: oppo_sell_order_mut.owner,
-                order_id: oppo_sell_order_mut.id,
-                order_type: OrderType::Limit,
-                sell_quantity: oppo_sell_order_mut.sell_quantity,
-                buy_quantity: oppo_sell_order_mut.buy_quantity,
-            }));
             let opposite_order_id = oppo_sell_order_mut.id;
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
                 result.push(Result::Err(OrderFailure::OrderNotFound(opposite_order_id)));
@@ -177,17 +192,14 @@ impl<'a> MatchingEngine<'a> {
             let oppo_order_mut = sell_queue.get_best_order_mut().unwrap();
             result.push(Result::Ok(OrderSuccess::Filled {
                 who: order.owner,
+                oppo_user: oppo_order_mut.owner,
+                oppo_order_id: oppo_order_mut.id,
                 order_id: order.id,
                 order_type: order_type,
                 sell_quantity: oppo_order_mut.buy_quantity,
                 buy_quantity: oppo_order_mut.sell_quantity,
-            }));
-            result.push(Result::Ok(OrderSuccess::Filled {
-                who: oppo_order_mut.owner,
-                order_id: oppo_order_mut.id,
-                order_type: OrderType::Limit,
-                sell_quantity: oppo_order_mut.sell_quantity,
-                buy_quantity: oppo_order_mut.buy_quantity,
+                filled: true,
+                oppo_filled: true,  // 双方订单完全成交
             }));
             let opposite_order_id = oppo_order_mut.id;
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
@@ -204,7 +216,13 @@ impl<'a> MatchingEngine<'a> {
         result: &mut OrderProcessResult
     ) {
         if result.len() + 2 > MAX_EVENTS  {
-                result.push(Result::Err(OrderFailure::TooManyEvents(result.len() as u64)));
+                result.push(Result::Err(OrderFailure::TooManyEvents{
+                    who: order.owner,
+                    order_id: order.id,
+                    order_type: OrderType::Market,
+                    sell_quantity: order.sell_quantity,
+                    buy_quantity: order.buy_quantity,
+                }));
                 return;
         } 
         if let Some(_opposite_order) = sell_queue.get_best_order() {
@@ -214,7 +232,13 @@ impl<'a> MatchingEngine<'a> {
                 Self::process_market_order(buy_queue, sell_queue, order, result);
             }
         } else {
-            result.push(Result::Err(OrderFailure::NoMatch(order.id)));
+            result.push(Result::Err(OrderFailure::NoMatch{
+                who: order.owner,
+                order_id: order.id,
+                order_type: OrderType::Market,
+                sell_quantity: order.sell_quantity,
+                buy_quantity: order.buy_quantity,
+            }));
         }
     }
 }
@@ -303,13 +327,24 @@ mod tests {
 
         let mut market_order = create_test_order(1, 100, 50);
         market_order.order_type = OrderType::Market;
+        let owner = market_order.owner;
         let result = orderbook.process_order(market_order);
 
         // Should have 1 error result (NoMatch)
         assert_eq!(result.len(), 2);
         match &result[0] {
-            Err(OrderFailure::NoMatch(order_id)) => {
+            Err(OrderFailure::NoMatch{
+                who,
+                order_id,
+                order_type,
+                sell_quantity,
+                buy_quantity,
+            }) => {
+                assert_eq!(*who, owner);
                 assert_eq!(*order_id, 1);
+                assert_eq!(*order_type, OrderType::Market);
+                assert_eq!(*sell_quantity, 50);
+                assert_eq!(*buy_quantity, 100);
             }
             _ => panic!("Expected NoMatch error"),
         }

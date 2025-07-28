@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount};
 use crate::state::IndividualTokenLedgerAccount;
+use crate::state::INDIVIDUAL_TOKEN_LEDGER_SEED;
 
 pub fn register_user_token_ledger_impl(ctx: Context<RegisterUserTokenLedger>, mint_account: Pubkey) -> Result<()> {
     msg!("Registering user token ledger with mint: {:?} and user account: {:?}", 
@@ -21,7 +22,7 @@ pub struct RegisterUserTokenLedger<'info> {
     #[account(
         init,
         payer = user,
-        seeds = [b"individual_token_ledger", mint_account.key().as_ref(), user.key().as_ref()],
+        seeds = [INDIVIDUAL_TOKEN_LEDGER_SEED, mint_account.key().as_ref(), user.key().as_ref()],
         bump,
         space = 8 + 16 + 16 + 32 + 32 + 1
     )]

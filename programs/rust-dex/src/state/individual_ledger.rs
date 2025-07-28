@@ -1,6 +1,10 @@
 use anchor_lang::prelude::*;
 use crate::common::MAX_TOKEN_MINTS;
 
+pub const INDIVIDUAL_LEDGER_SEED: &[u8] = b"user_ledger";
+pub const USER_ORDERBOOK_SEED: &[u8] = b"user_orderbook";
+pub const INDIVIDUAL_TOKEN_LEDGER_SEED: &[u8] = b"individual_token_ledger";
+
 #[account]
 pub struct IndividualLedgerAccount {
     pub tokens: [Pubkey; MAX_TOKEN_MINTS],

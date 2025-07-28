@@ -4,7 +4,8 @@ use crate::state::VaultTokenLedgerAccount;
 use crate::state::IndividualTokenLedgerAccount;
 use crate::market_seeds;
 use crate::common::ErrorCode;
-
+use crate::state::INDIVIDUAL_TOKEN_LEDGER_SEED;
+use crate::state::VAULT_TOKEN_LEDGER_SEED;
 
 pub fn withdraw_impl(ctx: Context<Withdraw>, _mint_account: Pubkey, amount: u64) -> Result<()> {
     msg!("Withdraw amount: {}", amount);
@@ -34,7 +35,7 @@ pub fn withdraw_impl(ctx: Context<Withdraw>, _mint_account: Pubkey, amount: u64)
 pub struct Withdraw<'info> {
     #[account(
         mut,
-        seeds = [b"vault_token_ledger", _mint_account.key().as_ref()],
+        seeds = [VAULT_TOKEN_LEDGER_SEED, _mint_account.key().as_ref()],
         bump = vault_token_ledger.bump,
         has_one = vault_token_account
     )]
@@ -47,7 +48,7 @@ pub struct Withdraw<'info> {
     pub vault_token_authority: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"individual_token_ledger", _mint_account.key().as_ref(),
+        seeds = [INDIVIDUAL_TOKEN_LEDGER_SEED, _mint_account.key().as_ref(),
         user.key().as_ref()],
         bump = user_token_ledger.bump,
         has_one = user_token_account

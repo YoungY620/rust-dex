@@ -273,22 +273,6 @@ describe("rust-dex: place_limit_order", () => {
     expect(user1QuoteBalanceAfter.availableBalance.toString()).to.equal(
       (DEPOSIT_QUOTE_AMOUNT - expectedQuoteLocked).toString()
     );
-
-    // 验证event list
-    // const orderEvents = await program.account.eventList.fetch(orderEventsPda);
-    // expect(orderEvents.inUse).to.equal(1);
-
-    // console.log("Order events after buy order:", {
-    //     user: orderEvents.user.map(u => u.toString()),
-    //     buyQuantity: orderEvents.buyQuantity.map(q => q.toString()),
-    //     sellQuantity: orderEvents.sellQuantity.map(q => q.toString()),
-    //     tokenBuy: orderEvents.tokenBuy.toString(),
-    //     tokenSell: orderEvents.tokenSell.toString(),
-    //     orderId: orderEvents.orderId.toString(),
-    //     length: orderEvents.length.toString(),
-    //     inUse: orderEvents.inUse,
-    //     bump: orderEvents.bump.toString(),
-    // });
   });
 
   it("Place sell limit order (User2 sells base token for quote token)", async () => {

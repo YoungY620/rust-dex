@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount, Token};
 use crate::state::VaultTokenLedgerAccount;
+use crate::state::VAULT_TOKEN_LEDGER_SEED;
 
 pub fn register_vault_token_ledger_impl(ctx: Context<RegisterVaultTokenLedger>) -> Result<()> {
     
@@ -22,7 +23,7 @@ pub struct RegisterVaultTokenLedger<'info> {
     #[account(
         init, 
         payer = user,
-        seeds = [b"vault_token_ledger", mint_account.key().as_ref()],
+        seeds = [VAULT_TOKEN_LEDGER_SEED, mint_account.key().as_ref()],
         bump,
         space = 8 + 16 + 32 + 32 + 1 + 1 
     )]

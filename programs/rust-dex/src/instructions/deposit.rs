@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 use anchor_spl::token;
 use crate::state::{VaultTokenLedgerAccount, IndividualTokenLedgerAccount};
+use crate::state::INDIVIDUAL_TOKEN_LEDGER_SEED;
+use crate::state::VAULT_TOKEN_LEDGER_SEED;
 
 pub fn deposit_impl(ctx: Context<Deposit>, _mint_account: Pubkey, amount: u64) -> Result<()> {
     msg!("Deposit amount: {}", amount);
@@ -26,14 +28,14 @@ pub fn deposit_impl(ctx: Context<Deposit>, _mint_account: Pubkey, amount: u64) -
 pub struct Deposit<'info> {
     #[account(
         mut,
-        seeds = [b"vault_token_ledger", _mint_account.key().as_ref()],
+        seeds = [VAULT_TOKEN_LEDGER_SEED, _mint_account.key().as_ref()],
         bump = vault_token_ledger.bump,
         has_one = vault_token_account
     )]
     pub vault_token_ledger: Account<'info, VaultTokenLedgerAccount>,
      #[account(
         mut,
-        seeds = [b"individual_token_ledger", _mint_account.key().as_ref(), user.key().as_ref()],
+        seeds = [INDIVIDUAL_TOKEN_LEDGER_SEED, _mint_account.key().as_ref(), user.key().as_ref()],
         bump = user_token_ledger.bump,
         has_one = user_token_account
     )]

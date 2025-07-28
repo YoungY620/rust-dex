@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, TokenAccount, Token};
 
+pub const VAULT_TOKEN_LEDGER_SEED: &[u8] = b"vault_token_ledger";
 
 #[account]
 pub struct VaultTokenLedgerAccount {

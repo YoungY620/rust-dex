@@ -3,6 +3,7 @@ use crate::state::{OrderHeap};
 use crate::common::{ErrorCode};
 use crate::TokenPairAccount;
 // pub const ORDER_HEAP_CAPACITY: usize = 1024; // Capacity of the order heap
+use crate::state::TOKEN_PAIR_SEED;
 
 
 pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey, token2: Pubkey) -> Result<()> {
@@ -34,7 +35,7 @@ pub struct RegisterTokenPair<'info> {
     #[account(
         init,
         payer = user,
-        seeds = [b"token_pair", token1.as_ref(), token2.as_ref()],
+        seeds = [TOKEN_PAIR_SEED, token1.as_ref(), token2.as_ref()],
         bump,
         space = 10 * (1024 as usize) // Adjust size based on TokenPairAccount struct size
         // space = 8 + 32 + 32 + 8 + ((104 + 1) * ORDER_HEAP_CAPACITY + 8) // Adjust size based on TokenPairAccount struct size
@@ -43,7 +44,7 @@ pub struct RegisterTokenPair<'info> {
     #[account(
         init,
         payer = user,
-        seeds = [b"token_pair", token2.as_ref(), token1.as_ref()],
+        seeds = [TOKEN_PAIR_SEED, token2.as_ref(), token1.as_ref()],
         bump,
         space = 10 * (1024 as usize) // Adjust size based on TokenPairAccount struct size
         // space = 8 + 32 + 32 + 8 + ((104 + 1) * ORDER_HEAP_CAPACITY + 8) // Adjust size based on TokenPairAccount struct size
