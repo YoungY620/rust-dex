@@ -36,7 +36,7 @@ impl OrderNode {
             timestamp,
         }
     }
-    pub fn sell_price(&self) -> f64 {
+    pub fn buy_price(&self) -> f64 {
         if  self.sell_quantity == 0 {
             0.0
         } else if self.buy_quantity == 0 {
@@ -45,7 +45,7 @@ impl OrderNode {
             self.sell_quantity as f64 / self.buy_quantity as f64
         }
     }
-    pub fn buy_price(&self) -> f64 {
+    pub fn sell_price(&self) -> f64 {
         if self.buy_quantity == 0 {
             0.0
         } else if self.sell_quantity == 0 {
@@ -58,8 +58,8 @@ impl OrderNode {
 
 impl Ord for OrderNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let self_price = self.sell_price() as f64;
-        let other_price = other.sell_price() as f64;
+        let self_price = self.buy_price() as f64;
+        let other_price = other.buy_price() as f64;
         return if self_price > other_price {
             Ordering::Greater
         } else if self_price < other_price {

@@ -80,7 +80,7 @@ pub struct RegisterUser<'info> {
         payer = user,
         seeds = [b"order_events", user.key().as_ref()],
         bump,
-        space = 8 + (MAX_EVENTS * (32 + 8 + 8) + 32 + 32 + 8 + 8 + 6 + 1 + 1) // EventList: user[32*32] + buy_quantity[8*32] + sell_quantity[8*32] + token_buy[32] + token_sell[32] + order_id[8] + length[8] + pad[6] + in_use[1] + bump[1]
+        space = 8 + (MAX_EVENTS * (32 + 8 + 8) + 32 + 32 + 8 + 8 + 1 + 1) // EventList: user[32*32] + buy_quantity[8*32] + sell_quantity[8*32] + token_buy[32] + token_sell[32] + order_id[8] + length[8] + pad[6] + in_use[1] + bump[1]
     )]
     pub order_events: Box<Account<'info, EventList>>,
 

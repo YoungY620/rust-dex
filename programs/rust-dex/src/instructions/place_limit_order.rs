@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::{common::{ErrorCode, OrderRequest, OrderType}, 
     instructions::{IndividualTokenLedgerAccount, TokenPairAccount}, 
-    orderbook::{OrderBook, OrderSuccess}, 
+    matching_engine::{MatchingEngine, OrderSuccess}, 
     state::{OrderHeap, EventList}, DexManager};
 
 pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: f64, amount: u64) -> Result<()> {
@@ -35,7 +35,7 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     let token_buy = if side == "buy" { base } else { quote };
     let token_sell = if side == "sell" { base } else { quote };
     
-    msg!("Order details: buy_amount={}, sell_amount={}, price={}", buy_amount, sell_amount, price);
+    msg!("Order details: buy_amount={}, sell_amount={}, price={}, owner={}", buy_amount, sell_amount, price, ctx.accounts.user.key());
     
     let selling_token_ledger = if side == "sell" {
         &mut ctx.accounts.user_base_token_ledger
@@ -48,8 +48,21 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     selling_token_ledger.available_balance -= sell_amount;
     selling_token_ledger.locked_balance += sell_amount;
 
-    let mut buy_queue_account = ctx.accounts.buy_base_queue.load_mut()?;
-    let mut sell_queue_account = ctx.accounts.sell_base_queue.load_mut()?;
+    let mut buy_queue_account = if side == "buy" {
+        ctx.accounts.base_quote_queue.load_mut()?
+    } else {
+        ctx.accounts.quote_base_queue.load_mut()?
+    };
+    let mut sell_queue_account = if side == "sell" {
+        ctx.accounts.base_quote_queue.load_mut()?
+    } else {
+        ctx.accounts.quote_base_queue.load_mut()?
+    };
+    {
+        let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
+        let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
+        token_pair_queue_logging(buy_queue, sell_queue);
+    }
     let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
     let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
     let event_list: &mut EventList = &mut ctx.accounts.order_events;
@@ -71,7 +84,8 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
         OrderType::Limit,
     );
     msg!("Order Request: {:?}", order_request);
-    let mut order_book = OrderBook::new(
+    
+    let mut order_book = MatchingEngine::new(
         token_buy,
         token_sell,
         buy_queue,
@@ -80,13 +94,44 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     
     let result = order_book.process_order(order_request);
     
-    convert_to_eventlist(event_list, result);
-
+    msg!("Process Order Result: {:?}", result);
+    convert_to_event_list(event_list, result);
+    // msg!("Event List: {:?}", event_list);
+    token_pair_queue_logging(buy_queue, sell_queue);
 
     Ok(())
 }
 
-fn convert_to_eventlist(event_list: &mut EventList, result: Vec<std::result::Result<OrderSuccess, crate::orderbook::OrderFailed>>) {
+fn token_pair_queue_logging(buy_queue: &OrderHeap, sell_queue: & OrderHeap) {
+    msg!("queue length: buy={}, sell={}", buy_queue.len(), sell_queue.len());
+    // print every items' buy token, sell token, buy quantity, sell quantity of buy queue and sell queue
+    for i in 0..buy_queue.len() {
+        let order = buy_queue.orders[i];
+        msg!("Buy Queue Order {}: buy_token={}, sell_token={}, buy_quantity={}, sell_quantity={}, sell_price={}, buy_price={}", 
+            i,
+            order.buy_token,
+            order.sell_token,   
+            order.buy_quantity,
+            order.sell_quantity,
+            order.buy_price(),
+            order.sell_price(),
+        );
+    }
+    for i in 0..sell_queue.len() {
+        let order = sell_queue.orders[i];
+        msg!("Sell Queue Order {}: buy_token={}, sell_token={}, buy_quantity={}, sell_quantity={}, sell_price={}, buy_price={}", 
+            i,
+            order.buy_token,
+            order.sell_token,   
+            order.buy_quantity,
+            order.sell_quantity,
+            order.buy_price(),
+            order.sell_price(),
+        );
+    }
+}
+
+fn convert_to_event_list(event_list: &mut EventList, result: Vec<std::result::Result<OrderSuccess, crate::matching_engine::OrderFailed>>) {
     for res in result {
         match res {
             Ok(success) => {
@@ -98,12 +143,10 @@ fn convert_to_eventlist(event_list: &mut EventList, result: Vec<std::result::Res
                         buy_quantity,
                         sell_quantity,
                     } => {
-                        let idx = event_list.length as usize;
-                        event_list.user[idx] = who;
-                        event_list.buy_quantity[idx] = buy_quantity;
-                        event_list.sell_quantity[idx] = sell_quantity;
-                    
-                        event_list.length += 1;
+                        if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity) {
+                            msg!("Add Event Failed: {:?}", e);
+                        }
+                        msg!("Order Filled: user={}, buy_quantity={}, sell_quantity={}", who, buy_quantity, sell_quantity);
                     },
                     OrderSuccess::PartialFilled {
                         order_id: _,
@@ -112,12 +155,10 @@ fn convert_to_eventlist(event_list: &mut EventList, result: Vec<std::result::Res
                         sell_quantity,
                         who,
                     } => {
-                        let idx = event_list.length as usize;
-                        event_list.user[idx] = who;
-                        event_list.buy_quantity[idx] = buy_quantity;
-                        event_list.sell_quantity[idx] = sell_quantity;
-                    
-                        event_list.length += 1;
+                        if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity) {
+                            msg!("Add Event Failed: {:?}", e);
+                        }
+                        msg!("Order Partial Filled: user={}, buy_quantity={}, sell_quantity={}", who, buy_quantity, sell_quantity);
                     },
                     _ => {
                         msg!("Order Success: {:?}", success);
@@ -139,13 +180,13 @@ pub struct PlaceLimitOrder<'info> {
         seeds = [b"token_pair", base.as_ref(), quote.as_ref()],
         bump,
     )]
-    pub buy_base_queue: AccountLoader<'info, TokenPairAccount>,
+    pub base_quote_queue: AccountLoader<'info, TokenPairAccount>,
     #[account(
         mut,
         seeds = [b"token_pair", quote.as_ref(), base.as_ref()],
         bump,
     )]
-    pub sell_base_queue: AccountLoader<'info, TokenPairAccount>,
+    pub quote_base_queue: AccountLoader<'info, TokenPairAccount>,
     #[account(
         mut,
         seeds = [b"dex_manager"],
@@ -155,7 +196,7 @@ pub struct PlaceLimitOrder<'info> {
     #[account(
         mut,
         seeds = [b"order_events", user.key().as_ref()],
-        bump,
+        bump = order_events.bump,
         // space = 8 + (MAX_EVENTS * (32 + 8 + 8) + 32 + 32 + 8 + 8) // Adjust size based on EventList struct size
     )]
     pub order_events: Box<Account<'info, EventList>>,

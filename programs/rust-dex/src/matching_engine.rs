@@ -41,18 +41,18 @@ pub enum OrderFailed {
 type OrderProcessResult = Vec<Result<OrderSuccess, OrderFailed>>;
 
 #[derive(Debug)]
-pub struct OrderBook<'a> {
-    pub order_token: Pubkey,
-    pub price_order: Pubkey,
+pub struct MatchingEngine<'a> {
+    pub buy_token: Pubkey,
+    pub sell_order: Pubkey,
     pub buy_queue: &'a mut OrderHeap,
     pub sell_queue: &'a mut OrderHeap,
 }
 
-impl<'a> OrderBook<'a> {
+impl<'a> MatchingEngine<'a> {
     pub fn new(order_token: Pubkey, price_order: Pubkey, buy_queue: &'a mut OrderHeap, sell_queue: &'a mut OrderHeap) -> Self {
         Self {
-            order_token,
-            price_order,
+            buy_token: order_token,
+            sell_order: price_order,
             buy_queue,
             sell_queue,
         }
@@ -96,7 +96,7 @@ impl<'a> OrderBook<'a> {
         result: &mut OrderProcessResult
     ) { 
         if let Some(sell_order) = sell_queue.get_best_order() {
-            let match_available = sell_order.sell_price() <= order.buy_price();
+            let match_available = sell_order.buy_price() >= order.sell_price();
             if result.len() + 2 > MAX_EVENTS  {
                 result.push(Result::Err(OrderFailed::TooManyEvents(result.len() as u64)));
                 return; 
@@ -128,7 +128,7 @@ impl<'a> OrderBook<'a> {
         let best_sell_order = sell_queue.get_best_order().unwrap();
         let oppo_buy_quantity = best_sell_order.buy_quantity;
         if order.sell_quantity < oppo_buy_quantity {
-            let buy_quantity = order.sell_quantity * best_sell_order.sell_price() as u64;
+            let buy_quantity = order.sell_quantity * best_sell_order.buy_price() as u64;
             result.push(Result::Ok(OrderSuccess::Filled { 
                 who: order.owner,
                 order_id: order.id, 
@@ -244,15 +244,15 @@ mod tests {
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
 
-        let orderbook = OrderBook::new(
+        let orderbook = MatchingEngine::new(
             order_token,
             price_order,
             &mut buy_queue,
             &mut sell_queue,
         );
 
-        assert_eq!(orderbook.order_token, order_token);
-        assert_eq!(orderbook.price_order, price_order);
+        assert_eq!(orderbook.buy_token, order_token);
+        assert_eq!(orderbook.sell_order, price_order);
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod tests {
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
 
-        let mut orderbook = OrderBook::new(
+        let mut orderbook = MatchingEngine::new(
             order_token,
             price_order,
             &mut buy_queue,
@@ -294,7 +294,7 @@ mod tests {
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
 
-        let mut orderbook = OrderBook::new(
+        let mut orderbook = MatchingEngine::new(
             order_token,
             price_order,
             &mut buy_queue,
@@ -328,8 +328,8 @@ mod tests {
             0,
         );
         
-        assert_eq!(order.sell_price(), 0.5); // 50/100
-        assert_eq!(order.buy_price(), 2.0);  // 100/50
+        assert_eq!(order.buy_price(), 0.5); // 50/100
+        assert_eq!(order.sell_price(), 2.0);  // 100/50
         
         // Test zero quantities
         let zero_order = OrderNode::new(
@@ -342,8 +342,8 @@ mod tests {
             0,
         );
         
-        assert_eq!(zero_order.sell_price(), 0.0);
         assert_eq!(zero_order.buy_price(), 0.0);
+        assert_eq!(zero_order.sell_price(), 0.0);
     }
 
     #[test]
@@ -413,7 +413,7 @@ mod tests {
         assert!(buy1_queue.add_order(buy1_order.clone()).is_ok());
         // assert!(sell_queue.add_order(sell1_order.clone()).is_ok());
 
-        let mut orderbook = OrderBook::new(
+        let mut orderbook = MatchingEngine::new(
             token1,
             token2,
             &mut sell1_queue,

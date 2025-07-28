@@ -14,7 +14,12 @@ pub struct OrderHeap {
     pub next_index: u64,
 }
 
+// Removed invalid implementation of Sized trait for OrderHeap
 impl OrderHeap {
+    pub fn len(&self) -> usize {
+        self.next_index as usize
+    }
+
     pub fn new() -> Self {
         OrderHeap {
             orders: [OrderNode::default(); ORDER_HEAP_CAPACITY],
