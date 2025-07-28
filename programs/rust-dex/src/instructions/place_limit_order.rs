@@ -79,36 +79,44 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     );
     
     let result = order_book.process_order(order_request);
+    
+    convert_to_eventlist(event_list, result);
+
+
+    Ok(())
+}
+
+fn convert_to_eventlist(event_list: &mut EventList, result: Vec<std::result::Result<OrderSuccess, crate::orderbook::OrderFailed>>) {
     for res in result {
         match res {
             Ok(success) => {
                 match success {
                     OrderSuccess::Filled {
+                        who,
                         order_id: _,
                         order_type: _,
-                        sell_quantity: buy_quantity,
-                        buy_quantity: sell_quantity,
-                        block_time: _
+                        buy_quantity,
+                        sell_quantity,
                     } => {
                         let idx = event_list.length as usize;
-                        event_list.user[idx] = ctx.accounts.user.key();
+                        event_list.user[idx] = who;
                         event_list.buy_quantity[idx] = buy_quantity;
                         event_list.sell_quantity[idx] = sell_quantity;
-                        
+                    
                         event_list.length += 1;
                     },
                     OrderSuccess::PartialFilled {
                         order_id: _,
                         order_type: _,
-                        sell_quantity: buy_quantity,
-                        buy_quantity: sell_quantity,
-                        block_time: _
+                        buy_quantity,
+                        sell_quantity,
+                        who,
                     } => {
                         let idx = event_list.length as usize;
-                        event_list.user[idx] = ctx.accounts.user.key();
+                        event_list.user[idx] = who;
                         event_list.buy_quantity[idx] = buy_quantity;
                         event_list.sell_quantity[idx] = sell_quantity;
-                        
+                    
                         event_list.length += 1;
                     },
                     _ => {
@@ -121,9 +129,6 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
             }
         }
     }
-
-
-    Ok(())
 }
 
 #[derive(Accounts)]
