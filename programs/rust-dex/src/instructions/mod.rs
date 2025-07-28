@@ -6,6 +6,7 @@ pub mod deposit;
 pub mod withdraw;
 pub mod place_limit_order;
 pub mod place_market_order;
+pub mod common;
 
 
 pub use register_vault_token_ledger::*;

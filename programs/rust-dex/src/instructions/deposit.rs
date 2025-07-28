@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
-use crate::instructions::*;
 use anchor_spl::token;
-
+use crate::state::{VaultTokenLedgerAccount, IndividualTokenLedgerAccount};
 
 pub fn deposit_impl(ctx: Context<Deposit>, _mint_account: Pubkey, amount: u64) -> Result<()> {
     msg!("Deposit amount: {}", amount);

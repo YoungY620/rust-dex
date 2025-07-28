@@ -31,14 +31,14 @@ pub enum OrderSuccess {
 }
 
 #[derive(Debug, Clone)]
-pub enum OrderFailed {
+pub enum OrderFailure {
     TooManyEvents(u64),
     OrderHeapFull(u64),
     NoMatch(u64),
     OrderNotFound(u64),
 }
 
-type OrderProcessResult = Vec<Result<OrderSuccess, OrderFailed>>;
+type OrderProcessResult = Vec<Result<OrderSuccess, OrderFailure>>;
 
 #[derive(Debug)]
 pub struct MatchingEngine<'a> {
@@ -98,7 +98,7 @@ impl<'a> MatchingEngine<'a> {
         if let Some(sell_order) = sell_queue.get_best_order() {
             let match_available = sell_order.buy_price() >= order.sell_price();
             if result.len() + 2 > MAX_EVENTS  {
-                result.push(Result::Err(OrderFailed::TooManyEvents(result.len() as u64)));
+                result.push(Result::Err(OrderFailure::TooManyEvents(result.len() as u64)));
                 return; 
             }
             if match_available {
@@ -109,12 +109,12 @@ impl<'a> MatchingEngine<'a> {
                 }
             }else {
                 if let Err(_) = buy_queue.add_order(order) {
-                    result.push(Result::Err(OrderFailed::OrderHeapFull(order.id)));
+                    result.push(Result::Err(OrderFailure::OrderHeapFull(order.id)));
                 }
             }
         } else {
             if let Err(_) = buy_queue.add_order(order) {
-                result.push(Result::Err(OrderFailed::OrderHeapFull(order.id)));
+                result.push(Result::Err(OrderFailure::OrderHeapFull(order.id)));
             }
         }
     }
@@ -170,7 +170,7 @@ impl<'a> MatchingEngine<'a> {
             }));
             let opposite_order_id = oppo_sell_order_mut.id;
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
-                result.push(Result::Err(OrderFailed::OrderNotFound(opposite_order_id)));
+                result.push(Result::Err(OrderFailure::OrderNotFound(opposite_order_id)));
             }
             return false;
         } else {
@@ -191,7 +191,7 @@ impl<'a> MatchingEngine<'a> {
             }));
             let opposite_order_id = oppo_order_mut.id;
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
-                result.push(Result::Err(OrderFailed::OrderNotFound(opposite_order_id)));
+                result.push(Result::Err(OrderFailure::OrderNotFound(opposite_order_id)));
             }
             return true;
         }
@@ -204,7 +204,7 @@ impl<'a> MatchingEngine<'a> {
         result: &mut OrderProcessResult
     ) {
         if result.len() + 2 > MAX_EVENTS  {
-                result.push(Result::Err(OrderFailed::TooManyEvents(result.len() as u64)));
+                result.push(Result::Err(OrderFailure::TooManyEvents(result.len() as u64)));
                 return;
         } 
         if let Some(_opposite_order) = sell_queue.get_best_order() {
@@ -214,7 +214,7 @@ impl<'a> MatchingEngine<'a> {
                 Self::process_market_order(buy_queue, sell_queue, order, result);
             }
         } else {
-            result.push(Result::Err(OrderFailed::NoMatch(order.id)));
+            result.push(Result::Err(OrderFailure::NoMatch(order.id)));
         }
     }
 }
@@ -308,7 +308,7 @@ mod tests {
         // Should have 1 error result (NoMatch)
         assert_eq!(result.len(), 2);
         match &result[0] {
-            Err(OrderFailed::NoMatch(order_id)) => {
+            Err(OrderFailure::NoMatch(order_id)) => {
                 assert_eq!(*order_id, 1);
             }
             _ => panic!("Expected NoMatch error"),

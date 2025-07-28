@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 use crate::{common::{ErrorCode, OrderRequest, OrderType}, 
-    instructions::{IndividualTokenLedgerAccount, TokenPairAccount}, 
-    matching_engine::{MatchingEngine, OrderSuccess}, 
+    matching_engine::{MatchingEngine}, 
     state::{OrderHeap, EventList}, DexManager};
+use crate::state::{IndividualTokenLedgerAccount, TokenPairAccount};
+use crate::instructions::common::{token_pair_queue_logging, convert_to_event_list};
 
 pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: f64, amount: u64) -> Result<()> {
     msg!("Placing limit order: {} for amount {}", side, amount);
@@ -100,76 +101,6 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     token_pair_queue_logging(buy_queue, sell_queue);
 
     Ok(())
-}
-
-fn token_pair_queue_logging(buy_queue: &OrderHeap, sell_queue: & OrderHeap) {
-    msg!("queue length: buy={}, sell={}", buy_queue.len(), sell_queue.len());
-    // print every items' buy token, sell token, buy quantity, sell quantity of buy queue and sell queue
-    for i in 0..buy_queue.len() {
-        let order = buy_queue.orders[i];
-        msg!("Buy Queue Order {}: buy_token={}, sell_token={}, buy_quantity={}, sell_quantity={}, sell_price={}, buy_price={}", 
-            i,
-            order.buy_token,
-            order.sell_token,   
-            order.buy_quantity,
-            order.sell_quantity,
-            order.buy_price(),
-            order.sell_price(),
-        );
-    }
-    for i in 0..sell_queue.len() {
-        let order = sell_queue.orders[i];
-        msg!("Sell Queue Order {}: buy_token={}, sell_token={}, buy_quantity={}, sell_quantity={}, sell_price={}, buy_price={}", 
-            i,
-            order.buy_token,
-            order.sell_token,   
-            order.buy_quantity,
-            order.sell_quantity,
-            order.buy_price(),
-            order.sell_price(),
-        );
-    }
-}
-
-fn convert_to_event_list(event_list: &mut EventList, result: Vec<std::result::Result<OrderSuccess, crate::matching_engine::OrderFailed>>) {
-    for res in result {
-        match res {
-            Ok(success) => {
-                match success {
-                    OrderSuccess::Filled {
-                        who,
-                        order_id: _,
-                        order_type: _,
-                        buy_quantity,
-                        sell_quantity,
-                    } => {
-                        if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity) {
-                            msg!("Add Event Failed: {:?}", e);
-                        }
-                        msg!("Order Filled: user={}, buy_quantity={}, sell_quantity={}", who, buy_quantity, sell_quantity);
-                    },
-                    OrderSuccess::PartialFilled {
-                        order_id: _,
-                        order_type: _,
-                        buy_quantity,
-                        sell_quantity,
-                        who,
-                    } => {
-                        if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity) {
-                            msg!("Add Event Failed: {:?}", e);
-                        }
-                        msg!("Order Partial Filled: user={}, buy_quantity={}, sell_quantity={}", who, buy_quantity, sell_quantity);
-                    },
-                    _ => {
-                        msg!("Order Success: {:?}", success);
-                    }
-                }
-            },
-            Err(failure) => {
-                msg!("Order Failed: {:?}", failure);
-            }
-        }
-    }
 }
 
 #[derive(Accounts)]

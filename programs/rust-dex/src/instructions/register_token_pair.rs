@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{OrderHeap};
 use crate::common::{ErrorCode};
+use crate::TokenPairAccount;
 // pub const ORDER_HEAP_CAPACITY: usize = 1024; // Capacity of the order heap
 
 
@@ -22,15 +23,6 @@ pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey,
     opposite_pair.order_heap = OrderHeap::new();
 
     Ok(())
-}
-
-#[account(zero_copy)]
-pub struct TokenPairAccount {
-    pub buy_token: Pubkey,
-    pub sell_token: Pubkey,
-    pub bump: u8,
-    pub pad: [u8; 7], // Padding to make the size 64 
-    pub order_heap: OrderHeap,
 }
 
 #[derive(Accounts)]

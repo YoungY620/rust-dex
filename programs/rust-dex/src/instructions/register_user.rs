@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 use crate::common::MAX_EVENTS;
 use crate::common::MAX_TOKEN_MINTS;
 use crate::state::EventList;
+use crate::state::IndividualLedgerAccount;
+use crate::state::UserOrderbook;
 
 pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     msg!("Registering user with key: {:?}", ctx.accounts.user.key());
@@ -41,21 +43,7 @@ pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     Ok(())
 }
 
-#[account]
-pub struct IndividualLedgerAccount {
-    pub tokens: [Pubkey; MAX_TOKEN_MINTS],
-    pub next_index: u16,
-    pub bitmap: [u8; MAX_TOKEN_MINTS],
-    pub bump: u8,
-}
 
-#[account]
-pub struct UserOrderbook {
-    pub orders: [u128; MAX_TOKEN_MINTS],
-    pub next_index: u16,
-    pub bitmap: [u8; MAX_TOKEN_MINTS],
-    pub bump: u8,
-}
 
 #[derive(Accounts)]
 pub struct RegisterUser<'info> {

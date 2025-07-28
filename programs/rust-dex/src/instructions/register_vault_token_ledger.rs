@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount, Token};
+use crate::state::VaultTokenLedgerAccount;
 
 pub fn register_vault_token_ledger_impl(ctx: Context<RegisterVaultTokenLedger>) -> Result<()> {
     
@@ -45,13 +46,4 @@ pub struct RegisterVaultTokenLedger<'info> {
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>, // needed by vault_token_account's initialization
-}
-
-#[account]
-pub struct VaultTokenLedgerAccount {
-    pub total_balance: u64,
-    pub mint_account: Pubkey,
-    pub vault_token_account: Pubkey,
-    pub bump: u8,
-    pub authority_bump: u8, // authority bump for vault_token_account
 }

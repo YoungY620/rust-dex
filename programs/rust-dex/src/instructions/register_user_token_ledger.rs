@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount};
+use crate::state::IndividualTokenLedgerAccount;
 
 pub fn register_user_token_ledger_impl(ctx: Context<RegisterUserTokenLedger>, mint_account: Pubkey) -> Result<()> {
     msg!("Registering user token ledger with mint: {:?} and user account: {:?}", 
@@ -34,11 +35,3 @@ pub struct RegisterUserTokenLedger<'info> {
 }
 
 
-#[account]
-pub struct IndividualTokenLedgerAccount {
-    pub available_balance: u64,
-    pub locked_balance: u64,
-    pub mint_account: Pubkey,
-    pub user_token_account: Pubkey,
-    pub bump: u8,
-}

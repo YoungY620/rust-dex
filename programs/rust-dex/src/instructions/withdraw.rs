@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
-use crate::instructions::{VaultTokenLedgerAccount, IndividualTokenLedgerAccount};
+use crate::state::VaultTokenLedgerAccount;
+use crate::state::IndividualTokenLedgerAccount;
 use crate::market_seeds;
 use crate::common::ErrorCode;
 

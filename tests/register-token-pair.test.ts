@@ -22,7 +22,6 @@ describe("rust-dex: register_token_pair", () => {
   let mintAuthority: Keypair;
 
   before(async () => {
-    mintAuthority = Keypair.generate();
     user = await createFundedUser(provider);
     mintAuthority = await createFundedUser(provider);
 

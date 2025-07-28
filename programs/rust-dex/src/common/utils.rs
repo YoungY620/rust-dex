@@ -9,14 +9,6 @@ macro_rules! market_seeds {
     };
 }
 
-
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum OrderSide {
-    Buy,
-    Sell,
-}
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub enum OrderType {
