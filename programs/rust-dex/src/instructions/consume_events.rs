@@ -33,33 +33,6 @@ pub fn consume_event_impl(ctx: Context<ConsumeEvents>, opposite_user_key: Pubkey
             msg!("Event does not belong to the specified opposite user: {}, expected: {}", opposite_user_key, next_event.oppo_user);
             return Err(ErrorCode::InvalidArgument.into());
         }
-        msg!("Processing event: {:?}", next_event);
-        msg!("User {:4} income: {} of token {:4} from user {:4} for {} of token {:4}",
-            ctx.accounts.user.key(),
-            next_event.buy_quantity,
-            &event_list.token_buy.to_string()[..4],
-            opposite_user_key,
-            next_event.sell_quantity,
-            &event_list.token_sell.to_string()[..4],
-        );
-        msg!("available balance: user token income ledger: {}, user token outcome ledger: {}, opposite user token income ledger: {}, opposite user token outcome ledger: {}",
-            user_token_income_ledger.available_balance,
-            user_token_outcome_ledger.available_balance,
-            opposite_user_token_income_ledger.available_balance,
-            opposite_user_token_outcome_ledger.available_balance,
-        );
-        msg!("locked balance: user token income ledger: {}, user token outcome ledger: {}, opposite user token income ledger: {}, opposite user token outcome ledger: {}",
-            user_token_income_ledger.locked_balance,
-            user_token_outcome_ledger.locked_balance,
-            opposite_user_token_income_ledger.locked_balance,
-            opposite_user_token_outcome_ledger.locked_balance,
-        );
-        msg!("mint account: user token income ledger: {}, user token outcome ledger: {}, \nopposite user token income ledger: {}, opposite user token outcome ledger: {}",
-            user_token_income_ledger.mint_account,
-            user_token_outcome_ledger.mint_account,
-            opposite_user_token_income_ledger.mint_account,
-            opposite_user_token_outcome_ledger.mint_account,
-        );
         user_token_outcome_ledger.locked_balance -= next_event.sell_quantity;
         opposite_user_token_outcome_ledger.locked_balance -= next_event.buy_quantity;
         user_token_income_ledger.available_balance += next_event.buy_quantity;
