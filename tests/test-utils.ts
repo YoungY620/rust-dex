@@ -7,6 +7,7 @@ import {
   TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
+import { use } from "chai";
 
 const LAMPORTS_PER_SOL = anchor.web3.LAMPORTS_PER_SOL;
 
@@ -118,6 +119,13 @@ export async function registerUser(
   return { individualLedgerPda, userOrderbookPda, orderEventsPda };
 }
 
+export async function registerUserOrderbook(program: Program<RustDex>, user: Keypair) {
+  const [userOrderbookPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("user_orderbook"), user.publicKey.toBuffer()],
+    program.programId 
+  );
+  return userOrderbookPda;
+}
 export async function registerUserTokenLedger(
   program: Program<RustDex>,
   user: Keypair,
@@ -181,7 +189,8 @@ export async function placeLimitOrder(
   sellBaseQueuePda: PublicKey,
   userEventsPda: PublicKey,
   userBaseTokenLedgerPda: PublicKey,
-  userQuoteTokenLedgerPda: PublicKey
+  userQuoteTokenLedgerPda: PublicKey,
+  userOrderbookPda: PublicKey,
 ) {
   await program.methods
     .placeLimitOrder(baseMint, quoteMint, side, price, new anchor.BN(amount))
@@ -192,6 +201,7 @@ export async function placeLimitOrder(
       orderEvents: userEventsPda,
       userBaseTokenLedger: userBaseTokenLedgerPda,
       userQuoteTokenLedger: userQuoteTokenLedgerPda,
+      userOrderbook: userOrderbookPda,
       user: fromUser.publicKey,
       systemProgram: SystemProgram.programId,
     })
@@ -211,7 +221,8 @@ export async function placeMarketOrder(
   sellBaseQueuePda: PublicKey,
   userEventsPda: PublicKey,
   userBaseTokenLedgerPda: PublicKey,
-  userQuoteTokenLedgerPda: PublicKey
+  userQuoteTokenLedgerPda: PublicKey,
+  userOrderbookPda: PublicKey,
 ) {
   await program.methods
     .placeMarketOrder(baseMint, quoteMint, side, new anchor.BN(amount))
@@ -222,9 +233,28 @@ export async function placeMarketOrder(
       orderEvents: userEventsPda,
       userBaseTokenLedger: userBaseTokenLedgerPda,
       userQuoteTokenLedger: userQuoteTokenLedgerPda,
+      userOrderbook: userOrderbookPda,
       user: fromUser.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .signers([fromUser])
+    .rpc();
+}
+
+export async function cancelOrder(
+  program: Program<RustDex>,
+  user: Keypair,
+  orderId: number,
+  baseQuoteQueuePda: PublicKey,
+  userOrderbookPda: PublicKey,
+) {
+  await program.methods
+    .cancelOrder(new anchor.BN(orderId))
+    .accountsPartial({
+      baseQuoteQueue: baseQuoteQueuePda,
+      userOrderBook: userOrderbookPda,
+      user: user.publicKey,
+    })
+    .signers([user])
     .rpc();
 }

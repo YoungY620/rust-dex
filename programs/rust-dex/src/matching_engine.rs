@@ -50,25 +50,27 @@ pub enum OrderFailure {
         sell_quantity: u64,
         buy_quantity: u64,
     },
-    OrderNotFound(u64),
+    OrderNotFound{
+        _order_id: u64,
+    },
 }
 
 type OrderProcessResult = Vec<Result<OrderSuccess, OrderFailure>>;
 
 #[derive(Debug)]
 pub struct MatchingEngine<'a> {
-    pub buy_token: Pubkey,
-    pub sell_order: Pubkey,
+    pub _buy_token: Pubkey,
+    pub _sell_token: Pubkey,
     pub buy_queue: &'a mut OrderHeap,
     pub sell_queue: &'a mut OrderHeap,
     pub user_orderbook: &'a mut UserOrderbook,
 }
 
 impl<'a> MatchingEngine<'a> {
-    pub fn new(order_token: Pubkey, price_order: Pubkey, buy_queue: &'a mut OrderHeap, sell_queue: &'a mut OrderHeap, user_orderbook: &'a mut UserOrderbook) -> Self {
+    pub fn new(buy_token: Pubkey, sell_token: Pubkey, buy_queue: &'a mut OrderHeap, sell_queue: &'a mut OrderHeap, user_orderbook: &'a mut UserOrderbook) -> Self {
         Self {
-            buy_token: order_token,
-            sell_order: price_order,
+            _buy_token: buy_token,
+            _sell_token: sell_token,
             buy_queue,
             sell_queue,
             user_orderbook,
@@ -133,13 +135,16 @@ impl<'a> MatchingEngine<'a> {
                 }
             }else {
                 if let Err(_) = buy_queue.add_order(order) {
-                    user_orderbook.add_order(order.id as u128).unwrap();
                     result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
+                }else{
+                    user_orderbook.add_order(order.id as u128).unwrap();
                 }
             }
         } else {
             if let Err(_) = buy_queue.add_order(order) {
                 result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
+            }else{
+                user_orderbook.add_order(order.id as u128).unwrap();
             }
         }
     }
@@ -189,7 +194,7 @@ impl<'a> MatchingEngine<'a> {
             }
             let opposite_order_id = oppo_sell_order_mut.id;
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
-                result.push(Result::Err(OrderFailure::OrderNotFound(opposite_order_id)));
+                result.push(Result::Err(OrderFailure::OrderNotFound{_order_id: opposite_order_id}));
             }
             return false;
         } else {
@@ -207,7 +212,7 @@ impl<'a> MatchingEngine<'a> {
             }));
             let opposite_order_id = oppo_order_mut.id;
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
-                result.push(Result::Err(OrderFailure::OrderNotFound(opposite_order_id)));
+                result.push(Result::Err(OrderFailure::OrderNotFound{_order_id: opposite_order_id}));
             }
             return true;
         }
@@ -281,8 +286,8 @@ mod tests {
             &mut user_orderbook,
         );
 
-        assert_eq!(orderbook.buy_token, order_token);
-        assert_eq!(orderbook.sell_order, price_order);
+        assert_eq!(orderbook._buy_token, order_token);
+        assert_eq!(orderbook._sell_token, price_order);
     }
 
     #[test]
@@ -321,15 +326,15 @@ mod tests {
 
     #[test]
     fn test_process_market_order_no_match() {
-        let order_token = Pubkey::new_unique();
-        let price_order = Pubkey::new_unique();
+        let buy_token = Pubkey::new_unique();
+        let sell_token = Pubkey::new_unique();
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
         let mut user_orderbook = UserOrderbook::default();
 
         let mut orderbook = MatchingEngine::new(
-            order_token,
-            price_order,
+            buy_token,
+            sell_token,
             &mut buy_queue,
             &mut sell_queue,
             &mut user_orderbook,

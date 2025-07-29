@@ -11,10 +11,12 @@ import {
   registerVaultTokenLedger,
   registerUser,
   registerUserTokenLedger,
-  depositTokens
+  depositTokens,
+  placeLimitOrder,
+  placeMarketOrder
 } from "./test-utils";
 
-describe("rust-dex: consume_events-rollback", () => {
+describe("rust-dex: place-order-normal", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
   const program = anchor.workspace.rustDex as Program<RustDex>;
   const provider = anchor.getProvider() as anchor.AnchorProvider;
@@ -47,6 +49,8 @@ describe("rust-dex: consume_events-rollback", () => {
   let user2QuoteTokenLedgerPda: PublicKey;
   let user1EventsPda: PublicKey;
   let user2EventsPda: PublicKey;
+  let user1OrderbookPda: PublicKey;
+  let user2OrderbookPda: PublicKey;
 
   const INITIAL_BASE_AMOUNT = 1000 * 10 ** 9;
   const INITIAL_QUOTE_AMOUNT = 10000 * 10 ** 6;
@@ -122,11 +126,33 @@ describe("rust-dex: consume_events-rollback", () => {
       program.programId
     );
 
+    [user1OrderbookPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("user_orderbook"), user1.publicKey.toBuffer()],
+      program.programId
+    );
+
+    [user2OrderbookPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("user_orderbook"), user2.publicKey.toBuffer()],
+      program.programId
+    );
+
     // Setup DEX environment
     await setupDexEnvironment();
   });
 
   async function setupDexEnvironment() {
+    try {
+      await program.methods.closeDexManager()
+        .accountsPartial({
+          dexManager: dexManagerPda,
+          user: user1.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([user1])
+        .rpc();
+    } catch (error) {
+      console.log("No existing dex_manager to close:", error.message);
+    }
     // Initialize DEX manager
     await program.methods.initialize()
       .accountsPartial({
@@ -183,54 +209,7 @@ describe("rust-dex: consume_events-rollback", () => {
     await depositTokens(program, user2, quoteMint, DEPOSIT_QUOTE_AMOUNT, user2QuoteTokenAccount, vaultQuoteTokenAccount, vaultQuoteTokenLedgerPda, user2QuoteTokenLedgerPda);
   }
 
-  async function place_limit_order(
-    from_user: Keypair,
-    base_mint: PublicKey,
-    quote_mint: PublicKey,
-    side: "buy" | "sell",
-    price: number,
-    amount: number
-  ) {
-    await program.methods
-      .placeLimitOrder(base_mint, quote_mint, side, price, new anchor.BN(amount))
-      .accountsPartial({
-        baseQuoteQueue: buyBaseQueuePda,
-        quoteBaseQueue: sellBaseQueuePda,
-        dexManager: dexManagerPda,
-        orderEvents: from_user === user1 ? user1EventsPda : user2EventsPda,
-        userBaseTokenLedger: from_user === user1 ? user1BaseTokenLedgerPda : user2BaseTokenLedgerPda,
-        userQuoteTokenLedger: from_user === user1 ? user1QuoteTokenLedgerPda : user2QuoteTokenLedgerPda,
-        user: from_user.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([from_user])
-      .rpc();
-  }
-
-  async function place_market_order(
-    from_user: Keypair,
-    base_mint: PublicKey,
-    quote_mint: PublicKey,
-    side: "buy" | "sell",
-    amount: number
-  ) {
-    await program.methods
-      .placeMarketOrder(base_mint, quote_mint, side, new anchor.BN(amount))
-      .accountsPartial({
-        baseQuoteQueue: buyBaseQueuePda,
-        quoteBaseQueue: sellBaseQueuePda,
-        dexManager: dexManagerPda,
-        orderEvents: from_user === user1 ? user1EventsPda : user2EventsPda,
-        userBaseTokenLedger: from_user === user1 ? user1BaseTokenLedgerPda : user2BaseTokenLedgerPda,
-        userQuoteTokenLedger: from_user === user1 ? user1QuoteTokenLedgerPda : user2QuoteTokenLedgerPda,
-        user: from_user.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([from_user])
-      .rpc();
-  }
-
-  async function consume_events_market(user: Keypair) {
+  async function consume_events(user: Keypair) {
     // 根据消费事件的用户，选出对应的 PDA 和 "opposite" 公钥
     const oppositeKey = user === user1 ? user2.publicKey : user1.publicKey;
     const eventListPda = user === user1 ? user1EventsPda : user2EventsPda;
@@ -265,19 +244,13 @@ describe("rust-dex: consume_events-rollback", () => {
     let userOutcomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(userSellLedger);
     let oppIncomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(oppBuyLedger);
     let oppOutcomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(oppSellLedger);
-    console.log("Locked Balances Before Consume Events:");
-    console.log(`User Income Ledger Locked Balance: ${userIncomeLedgerAccount.lockedBalance.toNumber()}`);
-    console.log(`User Outcome Ledger Locked Balance: ${userOutcomeLedgerAccount.lockedBalance.toNumber()}`);
-    console.log(`Opposite User Income Ledger Locked Balance: ${oppIncomeLedgerAccount.lockedBalance.toNumber()}`);
-    console.log(`Opposite User Outcome Ledger Locked Balance: ${oppOutcomeLedgerAccount.lockedBalance.toNumber()}`);
-    let user_sell_amount = events.sellQuantity[6].toNumber();
-
+  
     // check locked balances
     // user in 0, out 5000, opp in 0, out 40
-    const userLockedIn = userIncomeLedgerAccount.lockedBalance.toNumber();
-    const userLockedOut = userOutcomeLedgerAccount.lockedBalance.toNumber();
-    const oppLockedIn = oppIncomeLedgerAccount.lockedBalance.toNumber();
-    const oppLockedOut = oppOutcomeLedgerAccount.lockedBalance.toNumber();
+    expect(userIncomeLedgerAccount.lockedBalance.toNumber()).to.equal(0);
+    expect(userOutcomeLedgerAccount.lockedBalance.toNumber()).to.equal(5000);
+    expect(oppIncomeLedgerAccount.lockedBalance.toNumber()).to.equal(0);
+    expect(oppOutcomeLedgerAccount.lockedBalance.toNumber()).to.equal(40);
     // record current available balances
     const userAvailableIn = userIncomeLedgerAccount.availableBalance.toNumber();
     const userAvailableOut = userOutcomeLedgerAccount.availableBalance.toNumber();
@@ -301,41 +274,61 @@ describe("rust-dex: consume_events-rollback", () => {
     
     // check post commit states
     // locked balance: user out 4000, opp out 30
-    let userIncomeLedgerAccount_ = await program.account.individualTokenLedgerAccount.fetch(userBuyLedger);
-    let userOutcomeLedgerAccount_ = await program.account.individualTokenLedgerAccount.fetch(userSellLedger);
-    let oppIncomeLedgerAccount_ = await program.account.individualTokenLedgerAccount.fetch(oppBuyLedger);
-    let oppOutcomeLedgerAccount_ = await program.account.individualTokenLedgerAccount.fetch(oppSellLedger);
-  
-    console.log("Locked Balances After Consume Events:");
-    console.log(`User Income Ledger Locked Balance: ${userIncomeLedgerAccount_.lockedBalance.toNumber()}`);
-    console.log(`User Outcome Ledger Locked Balance: ${userOutcomeLedgerAccount_.lockedBalance.toNumber()}`);
-    console.log(`Opposite User Income Ledger Locked Balance: ${oppIncomeLedgerAccount_.lockedBalance.toNumber()}`);
-    console.log(`Opposite User Outcome Ledger Locked Balance: ${oppOutcomeLedgerAccount_.lockedBalance.toNumber()}`);
-    // check rollback: user's locked out balance should be reduced by user_sell_amount
-    expect(userOutcomeLedgerAccount_.lockedBalance.toNumber()).to.equal(userLockedOut - user_sell_amount);
+    userIncomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(userBuyLedger);
+    userOutcomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(userSellLedger);
+    oppIncomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(oppBuyLedger);
+    oppOutcomeLedgerAccount = await program.account.individualTokenLedgerAccount.fetch(oppSellLedger);
+    expect(userIncomeLedgerAccount.lockedBalance.toNumber()).to.equal(0);
+    expect(userOutcomeLedgerAccount.lockedBalance.toNumber()).to.equal(4000);
+    expect(oppIncomeLedgerAccount.lockedBalance.toNumber()).to.equal(0);
+    expect(oppOutcomeLedgerAccount.lockedBalance.toNumber()).to.equal(30);
+    // available balance: user in plus 10, opp in plus 1000
+    expect(userIncomeLedgerAccount.availableBalance.toNumber()).to.equal(userAvailableIn + 10);
+    expect(userOutcomeLedgerAccount.availableBalance.toNumber()).to.equal(userAvailableOut);
+    expect(oppIncomeLedgerAccount.availableBalance.toNumber()).to.equal(oppAvailableIn + 1000);
+    expect(oppOutcomeLedgerAccount.availableBalance.toNumber()).to.equal(oppAvailableOut);
   }
 
-  it("should consume events when dealing with market order", async () => {
-    // Place limit orders
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    // await place_limit_order(user2, baseMint, quoteMint, "buy", 100, 50);
-    await place_market_order(user2, baseMint, quoteMint, "buy", 50);
+  it("should consume events for a user", async () => {
+    // 使用新的工具函数发起限价交易
+    const orders = [
+      { user: user1, side: "sell", amount: 10 },
+      { user: user1, side: "sell", amount: 10 },
+      { user: user1, side: "sell", amount: 10 },
+      { user: user1, side: "sell", amount: 10 },
+      { user: user2, side: "buy", amount: 50 }
+    ];
 
+    for (const order of orders) {
+      await placeLimitOrder(
+        program,
+        order.user,
+        baseMint,
+        quoteMint,
+        order.side,
+        100,
+        order.amount,
+        dexManagerPda,
+        buyBaseQueuePda,
+        sellBaseQueuePda,
+        order.user === user1 ? user1EventsPda : user2EventsPda,
+        order.user === user1 ? user1BaseTokenLedgerPda : user2BaseTokenLedgerPda,
+        order.user === user1 ? user1QuoteTokenLedgerPda : user2QuoteTokenLedgerPda,
+        order.user === user1 ? user1OrderbookPda : user2OrderbookPda
+      );
+    }
+    
+    // get the events for user2
     const events = await program.account.eventList.fetch(user2EventsPda);
-    console.log(events);
-    expect(events.length.toString()).to.equal(new anchor.BN(7).toString());   // there should be 4 events for user2
-    expect(events.rollback[6].toString()).to.equal("1"); 
+    // console.log(events);
+    expect(events.length.toString()).to.equal(new anchor.BN(4).toString());   // there should be 4 events for user2
 
-    // Consume events for user1
-    await consume_events_market(user2);
+    // Consume events for user2
+    await consume_events(user2);
 
-    const events1 = await program.account.eventList.fetch(user2EventsPda);
-    console.log(events1);
-    expect(events1.length.toString()).to.equal(new anchor.BN(6).toString()); 
+    const events2 = await program.account.eventList.fetch(user2EventsPda);
+    // console.log(events2);
+    expect(events2.length.toString()).to.equal(new anchor.BN(3).toString()); 
   });
+
 });

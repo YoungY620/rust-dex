@@ -145,13 +145,7 @@ pub struct PlaceLimitOrder<'info> {
     pub user_base_token_ledger: Box<Account<'info, IndividualTokenLedgerAccount>>,
     #[account(mut)]
     pub user_quote_token_ledger: Box<Account<'info, IndividualTokenLedgerAccount>>,
-    #[account(
-        init,
-        payer = user,
-        seeds = [USER_ORDERBOOK_SEED, user.key().as_ref()],
-        bump,
-        space = 8 + MAX_TOKEN_MINTS * 16 + MAX_TOKEN_MINTS + 2 + 1 // UserOrderbook: orders[16*32] + next_index[2] + bitmap[32] + bump[1]
-    )]
+    #[account(mut)]
     pub user_orderbook: Box<Account<'info, UserOrderbook>>,
 
     #[account(mut)]
