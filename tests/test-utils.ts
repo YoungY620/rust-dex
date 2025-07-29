@@ -167,3 +167,64 @@ export async function depositTokens(
     .signers([user])
     .rpc();
 }
+
+export async function placeLimitOrder(
+  program: Program<RustDex>,
+  fromUser: Keypair,
+  baseMint: PublicKey,
+  quoteMint: PublicKey,
+  side: "buy" | "sell",
+  price: number,
+  amount: number,
+  dexManagerPda: PublicKey,
+  buyBaseQueuePda: PublicKey,
+  sellBaseQueuePda: PublicKey,
+  userEventsPda: PublicKey,
+  userBaseTokenLedgerPda: PublicKey,
+  userQuoteTokenLedgerPda: PublicKey
+) {
+  await program.methods
+    .placeLimitOrder(baseMint, quoteMint, side, price, new anchor.BN(amount))
+    .accountsPartial({
+      baseQuoteQueue: buyBaseQueuePda,
+      quoteBaseQueue: sellBaseQueuePda,
+      dexManager: dexManagerPda,
+      orderEvents: userEventsPda,
+      userBaseTokenLedger: userBaseTokenLedgerPda,
+      userQuoteTokenLedger: userQuoteTokenLedgerPda,
+      user: fromUser.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([fromUser])
+    .rpc();
+}
+
+export async function placeMarketOrder(
+  program: Program<RustDex>,
+  fromUser: Keypair,
+  baseMint: PublicKey,
+  quoteMint: PublicKey,
+  side: "buy" | "sell",
+  amount: number,
+  dexManagerPda: PublicKey,
+  buyBaseQueuePda: PublicKey,
+  sellBaseQueuePda: PublicKey,
+  userEventsPda: PublicKey,
+  userBaseTokenLedgerPda: PublicKey,
+  userQuoteTokenLedgerPda: PublicKey
+) {
+  await program.methods
+    .placeMarketOrder(baseMint, quoteMint, side, new anchor.BN(amount))
+    .accountsPartial({
+      baseQuoteQueue: buyBaseQueuePda,
+      quoteBaseQueue: sellBaseQueuePda,
+      dexManager: dexManagerPda,
+      orderEvents: userEventsPda,
+      userBaseTokenLedger: userBaseTokenLedgerPda,
+      userQuoteTokenLedger: userQuoteTokenLedgerPda,
+      user: fromUser.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([fromUser])
+    .rpc();
+}

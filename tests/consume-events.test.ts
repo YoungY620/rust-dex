@@ -11,7 +11,9 @@ import {
   registerVaultTokenLedger,
   registerUser,
   registerUserTokenLedger,
-  depositTokens
+  depositTokens,
+  placeLimitOrder,
+  placeMarketOrder
 } from "./test-utils";
 
 describe("rust-dex: consume_events", () => {
@@ -183,54 +185,6 @@ describe("rust-dex: consume_events", () => {
     await depositTokens(program, user2, quoteMint, DEPOSIT_QUOTE_AMOUNT, user2QuoteTokenAccount, vaultQuoteTokenAccount, vaultQuoteTokenLedgerPda, user2QuoteTokenLedgerPda);
   }
 
-  async function place_limit_order(
-    from_user: Keypair,
-    base_mint: PublicKey,
-    quote_mint: PublicKey,
-    side: "buy" | "sell",
-    price: number,
-    amount: number
-  ) {
-    await program.methods
-      .placeLimitOrder(base_mint, quote_mint, side, price, new anchor.BN(amount))
-      .accountsPartial({
-        baseQuoteQueue: buyBaseQueuePda,
-        quoteBaseQueue: sellBaseQueuePda,
-        dexManager: dexManagerPda,
-        orderEvents: from_user === user1 ? user1EventsPda : user2EventsPda,
-        userBaseTokenLedger: from_user === user1 ? user1BaseTokenLedgerPda : user2BaseTokenLedgerPda,
-        userQuoteTokenLedger: from_user === user1 ? user1QuoteTokenLedgerPda : user2QuoteTokenLedgerPda,
-        user: from_user.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([from_user])
-      .rpc();
-  }
-
-  async function place_market_order(
-    from_user: Keypair,
-    base_mint: PublicKey,
-    quote_mint: PublicKey,
-    side: "buy" | "sell",
-    amount: number
-  ) {
-    await program.methods
-      .placeMarketOrder(base_mint, quote_mint, side, new anchor.BN(amount))
-      .accountsPartial({
-        baseQuoteQueue: buyBaseQueuePda,
-        quoteBaseQueue: sellBaseQueuePda,
-        dexManager: dexManagerPda,
-        orderEvents: from_user === user1 ? user1EventsPda : user2EventsPda,
-        userBaseTokenLedger: from_user === user1 ? user1BaseTokenLedgerPda : user2BaseTokenLedgerPda,
-        userQuoteTokenLedger: from_user === user1 ? user1QuoteTokenLedgerPda : user2QuoteTokenLedgerPda,
-        user: from_user.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([from_user])
-      .rpc();
-  }
-  
-
   async function consume_events(user: Keypair) {
     // 根据消费事件的用户，选出对应的 PDA 和 "opposite" 公钥
     const oppositeKey = user === user1 ? user2.publicKey : user1.publicKey;
@@ -312,12 +266,32 @@ describe("rust-dex: consume_events", () => {
   }
 
   it("should consume events for a user", async () => {
-    // Place limit orders
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user1, baseMint, quoteMint, "sell", 100, 10);
-    await place_limit_order(user2, baseMint, quoteMint, "buy", 100, 50);
+    // 使用新的工具函数发起限价交易
+    const orders = [
+      { user: user1, side: "sell", amount: 10 },
+      { user: user1, side: "sell", amount: 10 },
+      { user: user1, side: "sell", amount: 10 },
+      { user: user1, side: "sell", amount: 10 },
+      { user: user2, side: "buy", amount: 50 }
+    ];
+
+    for (const order of orders) {
+      await placeLimitOrder(
+        program,
+        order.user,
+        baseMint,
+        quoteMint,
+        order.side,
+        100,
+        order.amount,
+        dexManagerPda,
+        buyBaseQueuePda,
+        sellBaseQueuePda,
+        order.user === user1 ? user1EventsPda : user2EventsPda,
+        order.user === user1 ? user1BaseTokenLedgerPda : user2BaseTokenLedgerPda,
+        order.user === user1 ? user1QuoteTokenLedgerPda : user2QuoteTokenLedgerPda
+      );
+    }
     
     // get the events for user2
     const events = await program.account.eventList.fetch(user2EventsPda);
