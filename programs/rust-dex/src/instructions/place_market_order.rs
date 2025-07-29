@@ -1,9 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::{
-    common::{ErrorCode, OrderRequest, OrderType}, 
-    matching_engine::MatchingEngine, 
-    state::{OrderHeap, EventList, IndividualTokenLedgerAccount, TokenPairAccount}, 
-    DexManager,
+    common::{ErrorCode, OrderRequest, OrderType, MAX_TOKEN_MINTS}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeap, TokenPairAccount}, DexManager, UserOrderbook, USER_ORDERBOOK_SEED
 };
 use crate::instructions::common::token_pair_queue_logging;
 use crate::instructions::common::convert_to_event_list;
@@ -89,11 +86,13 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
     msg!("Market Order Request: {:?}", order_request);
     
     // 处理订单
+    let user_orderbook: &mut UserOrderbook = &mut ctx.accounts.user_orderbook;
     let mut order_book = MatchingEngine::new(
         token_buy,
         token_sell,
         buy_queue,
         sell_queue,
+        user_orderbook,
     );
     
     let result = order_book.process_order(order_request);
@@ -133,7 +132,16 @@ pub struct PlaceMarketOrder<'info> {
     
     #[account(mut, seeds = [INDIVIDUAL_TOKEN_LEDGER_SEED, quote.as_ref(), user.key().as_ref()], bump)]
     pub user_quote_token_ledger: Box<Account<'info, IndividualTokenLedgerAccount>>,
-
+    
+    #[account(
+        init,
+        payer = user,
+        seeds = [USER_ORDERBOOK_SEED, user.key().as_ref()],
+        bump,
+        space = 8 + MAX_TOKEN_MINTS * 16 + MAX_TOKEN_MINTS + 2 + 1 // UserOrderbook: orders[16*32] + next_index[2] + bitmap[32] + bump[1]
+    )]
+    pub user_orderbook: Box<Account<'info, UserOrderbook>>,
+    
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,

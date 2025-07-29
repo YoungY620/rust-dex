@@ -13,4 +13,5 @@ pub enum ErrorCode {
     EventListClosed, // The event list is closed and cannot be consumed.
     InvalidEventType, // The event type is invalid.
     InvalidArgument, // An invalid argument was provided to the function.
+    MaxTokensReached, // The maximum number of tokens has been reached in the ledger.
 }

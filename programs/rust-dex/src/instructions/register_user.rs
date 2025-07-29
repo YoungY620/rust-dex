@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use crate::common::MAX_EVENTS;
 use crate::common::MAX_TOKEN_MINTS;
 use crate::state::EventList;
 use crate::state::IndividualLedgerAccount;

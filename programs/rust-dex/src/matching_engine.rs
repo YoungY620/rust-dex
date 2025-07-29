@@ -2,7 +2,7 @@ use std::{char::MAX, fmt::Debug, result::Result};
 
 use anchor_lang::prelude::{Clock, Pubkey, SolanaSysvar};
 
-use crate::{common::{OrderRequest, OrderType, MAX_EVENTS}, state::{OrderHeap, OrderNode}};
+use crate::{common::{OrderRequest, OrderType, MAX_EVENTS}, state::{OrderHeap, OrderNode}, UserOrderbook};
 
 
 #[derive(Debug, Clone)]
@@ -61,15 +61,17 @@ pub struct MatchingEngine<'a> {
     pub sell_order: Pubkey,
     pub buy_queue: &'a mut OrderHeap,
     pub sell_queue: &'a mut OrderHeap,
+    pub user_orderbook: &'a mut UserOrderbook,
 }
 
 impl<'a> MatchingEngine<'a> {
-    pub fn new(order_token: Pubkey, price_order: Pubkey, buy_queue: &'a mut OrderHeap, sell_queue: &'a mut OrderHeap) -> Self {
+    pub fn new(order_token: Pubkey, price_order: Pubkey, buy_queue: &'a mut OrderHeap, sell_queue: &'a mut OrderHeap, user_orderbook: &'a mut UserOrderbook) -> Self {
         Self {
             buy_token: order_token,
             sell_order: price_order,
             buy_queue,
             sell_queue,
+            user_orderbook,
         }
     }
     
@@ -91,7 +93,7 @@ impl<'a> MatchingEngine<'a> {
                     order_type: order.order_type,
                 }));
 
-                Self::process_limit_order(&mut self.buy_queue, &mut self.sell_queue, order_node, &mut result);
+                Self::process_limit_order(&mut self.buy_queue, &mut self.sell_queue, order_node, &mut result, self.user_orderbook);
             },
             OrderType::Market => {
                 result.push(Result::Ok(OrderSuccess::Accepted{
@@ -108,7 +110,8 @@ impl<'a> MatchingEngine<'a> {
         buy_queue: &mut OrderHeap,
         sell_queue: &mut OrderHeap,
         mut order: OrderNode,
-        result: &mut OrderProcessResult
+        result: &mut OrderProcessResult,
+        user_orderbook: &mut UserOrderbook,
     ) { 
         if let Some(sell_order) = sell_queue.get_best_order() {
             let match_available = sell_order.buy_price() >= order.sell_price();
@@ -126,10 +129,11 @@ impl<'a> MatchingEngine<'a> {
                 let completed = Self::order_match(&mut order, sell_queue, result, OrderType::Limit);
 
                 if !completed {
-                    Self::process_limit_order(buy_queue, sell_queue, order, result);
+                    Self::process_limit_order(buy_queue, sell_queue, order, result, user_orderbook);
                 }
             }else {
                 if let Err(_) = buy_queue.add_order(order) {
+                    user_orderbook.add_order(order.id as u128).unwrap();
                     result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
                 }
             }
@@ -267,12 +271,14 @@ mod tests {
         let price_order = Pubkey::new_unique();
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
+        let mut user_orderbook = UserOrderbook::default();
 
         let orderbook = MatchingEngine::new(
             order_token,
             price_order,
             &mut buy_queue,
             &mut sell_queue,
+            &mut user_orderbook,
         );
 
         assert_eq!(orderbook.buy_token, order_token);
@@ -285,12 +291,14 @@ mod tests {
         let price_order = Pubkey::new_unique();
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
+        let mut user_orderbook = UserOrderbook::default();
 
         let mut orderbook = MatchingEngine::new(
             order_token,
             price_order,
             &mut buy_queue,
             &mut sell_queue,
+            &mut user_orderbook,
         );
 
         let order = create_test_order(1, 100, 50); // buy 100, sell 50
@@ -317,12 +325,14 @@ mod tests {
         let price_order = Pubkey::new_unique();
         let mut buy_queue = OrderHeap::new();
         let mut sell_queue = OrderHeap::new();
+        let mut user_orderbook = UserOrderbook::default();
 
         let mut orderbook = MatchingEngine::new(
             order_token,
             price_order,
             &mut buy_queue,
             &mut sell_queue,
+            &mut user_orderbook,
         );
 
         let mut market_order = create_test_order(1, 100, 50);
@@ -431,6 +441,7 @@ mod tests {
         let token2 = Pubkey::new_unique();
         let mut buy1_queue = OrderHeap::new();
         let mut sell1_queue = OrderHeap::new();
+        let mut user_orderbook = UserOrderbook::default();
 
         // Buy order: wants to buy 100 for 50 (buy_price = 2.0)
         let buy1_order = OrderNode::new(
@@ -453,6 +464,7 @@ mod tests {
             token2,
             &mut sell1_queue,
             &mut buy1_queue,
+            &mut user_orderbook,
         );
 
         // Now, process a new buy order that matches the sell order
