@@ -64,6 +64,22 @@ impl UserOrderbook {
         Ok(())
     }
     
+    pub fn remove_order(&mut self, order: u128) -> Result<()> {
+        let hit_index = self.orders.iter().position(|&x| x == order);
+        if hit_index.is_none() {
+            return Err(ErrorCode::OrderNotFound.into());
+        }
+        let index = hit_index.unwrap();
+        for i in index..(self.next_index as usize - 1) {
+            self.orders[i] = self.orders[i + 1];
+            self.bitmap[i] = self.bitmap[i + 1];
+        }
+        self.orders[(self.next_index - 1) as usize] = 0; // Clear the last order
+        self.bitmap[(self.next_index - 1) as usize] = 0; // Clear the last bitmap
+        self.next_index -= 1;
+        Ok(())
+    }
+        
 }
 
 #[account]

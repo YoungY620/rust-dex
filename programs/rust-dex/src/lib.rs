@@ -64,10 +64,8 @@ pub mod rust_dex {
         Ok(())
     }
 
-    pub fn cancel_order(ctx: Context<CancelOrder>, order_id: u128) -> Result<()> {
-        msg!("Cancelling order with ID: {}", order_id);
-        
-        Ok(())
+    pub fn cancel_order(ctx: Context<CancelOrder>, order_id: u64) -> Result<()> {
+        instructions::cancel_order_impl(ctx, order_id)
     }
 }
 
@@ -100,11 +98,4 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
-}
-
-
-
-#[derive(Accounts)]
-pub struct CancelOrder {
-    // Add required accounts here
 }

@@ -8,6 +8,7 @@ pub mod place_limit_order;
 pub mod place_market_order;
 pub mod common;
 pub mod consume_events;
+pub mod cancel_order;
 
 
 pub use register_vault_token_ledger::*;
@@ -19,3 +20,4 @@ pub use withdraw::*;
 pub use place_limit_order::*;
 pub use place_market_order::*;
 pub use consume_events::*;
+pub use cancel_order::*;
