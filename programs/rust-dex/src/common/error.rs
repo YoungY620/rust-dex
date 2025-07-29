@@ -12,4 +12,5 @@ pub enum ErrorCode {
     EventListAlreadyInUse, // The event list is already in use and cannot be opened again.
     EventListClosed, // The event list is closed and cannot be consumed.
     InvalidEventType, // The event type is invalid.
+    InvalidArgument, // An invalid argument was provided to the function.
 }

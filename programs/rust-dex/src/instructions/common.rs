@@ -50,7 +50,7 @@ pub fn convert_to_event_list(event_list: &mut EventList, result: Vec<std::result
                     | crate::matching_engine::OrderFailure::OrderHeapFull { 
                         who, order_id, order_type, sell_quantity, buy_quantity 
                     } => {
-                        if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity, 1, 0, 0, 0) {
+                        if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity, 1, 0, 0 , 0) {
                             msg!("Add Event Failed: {:?}", e);
                         }
                     },

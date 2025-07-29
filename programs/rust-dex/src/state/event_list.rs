@@ -1,9 +1,20 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_2022::spl_token_2022::extension::confidential_mint_burn::instruction::RotateSupplyElGamalPubkeyData;
 use crate::common::MAX_EVENTS;
 use crate::common::ErrorCode;
 
 pub const ORDER_EVENTS_SEED: &[u8] = b"order_events";
+
+// 新增Event结构体，包含所有事件字段
+#[derive(Debug)]
+pub struct Event {
+    pub oppo_user: Pubkey,
+    pub buy_quantity: u64,
+    pub sell_quantity: u64,
+    pub rollback: bool,
+    pub oppo_order_id: u64,
+    pub filled: bool,
+    pub oppo_filled: bool,
+}
 
 #[account]
 #[derive(Default, Debug)]
@@ -11,11 +22,11 @@ pub struct EventList {
     pub oppo_user: [Pubkey; MAX_EVENTS],
     pub buy_quantity: [u64; MAX_EVENTS],
     pub sell_quantity: [u64; MAX_EVENTS],
-    pub rollback: [u8; MAX_EVENTS], // Used to track if an event has been rolled back
-    pub oppo_order_id: [u64; MAX_EVENTS], // Used to track the order ID of the opposite user
-    pub filled: [u8; MAX_EVENTS], // Used to track if the event has been filled
-    pub oppo_filled: [u8; MAX_EVENTS], // Used to track if the opposite user has filled the event
-    pub user: Pubkey, // The user who created this event list
+    pub rollback: [u8; MAX_EVENTS],
+    pub oppo_order_id: [u64; MAX_EVENTS],
+    pub filled: [u8; MAX_EVENTS],
+    pub oppo_filled: [u8; MAX_EVENTS],
+    pub user: Pubkey,
     pub token_buy: Pubkey,
     pub token_sell: Pubkey,
     pub order_id: u64,
@@ -25,7 +36,25 @@ pub struct EventList {
 }
 
 impl EventList {
+    pub fn init(&mut self, user: Pubkey, token_buy: Pubkey, token_sell: Pubkey, order_id: u64) {
+        self.user = user;
+        self.token_buy = token_buy;
+        self.token_sell = token_sell;
+        self.order_id = order_id;
+        msg!("length = 0 in init");
+        self.length = 0;
+        self.in_use = 0; // Mark as not in use
+        self.oppo_user = [Pubkey::default(); MAX_EVENTS];
+        self.buy_quantity = [0; MAX_EVENTS];
+        self.sell_quantity = [0; MAX_EVENTS];
+        self.rollback = [0; MAX_EVENTS];
+        self.oppo_order_id = [0; MAX_EVENTS];
+        self.filled = [0; MAX_EVENTS];
+        self.oppo_filled = [0; MAX_EVENTS];
+    }
+
     pub fn close(&mut self) {
+        msg!("length = 0 in close");
         self.length = 0;
         self.in_use = 0;
     }
@@ -42,6 +71,7 @@ impl EventList {
         self.token_buy = token_buy;
         self.token_sell = token_sell;
         self.order_id = order_id;
+        msg!("length = 0 in open");
         self.length = 0;
         self.in_use = 1; // Mark as in use
         Ok(())
@@ -67,7 +97,9 @@ impl EventList {
         self.rollback[idx] = rollback;
         self.filled[idx] = filled;
         self.oppo_filled[idx] = oppo_filled;
+        self.oppo_order_id[idx] = oppo_order_id;
         self.length += 1;
+        msg!("length = {} in add_event", self.length);
         Ok(())
     }
 
@@ -85,11 +117,23 @@ impl EventList {
         Some((self.oppo_user[index], self.buy_quantity[index], self.sell_quantity[index]))
     }
     
-    pub fn pop(&mut self) -> Option<(Pubkey, u64, u64)> {
+    // 修改pop方法返回完整的Event结构体
+    pub fn pop(&mut self) -> Option<Event> {
         if self.length == 0 {
             return None;
         }
+        let idx = (self.length - 1) as usize;
         self.length -= 1;
-        Some((self.oppo_user[self.length as usize], self.buy_quantity[self.length as usize], self.sell_quantity[self.length as usize]))
+        msg!("length = {} in pop", self.length);
+        
+        Some(Event {
+            oppo_user: self.oppo_user[idx],
+            buy_quantity: self.buy_quantity[idx],
+            sell_quantity: self.sell_quantity[idx],
+            rollback: self.rollback[idx] == 1,
+            oppo_order_id: self.oppo_order_id[idx],
+            filled: self.filled[idx] == 1,
+            oppo_filled: self.oppo_filled[idx] == 1,
+        })
     }
 }

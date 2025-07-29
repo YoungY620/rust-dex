@@ -31,17 +31,13 @@ pub fn register_user_impl(ctx: Context<RegisterUser>) -> Result<()> {
     }
 
     // Initialize user_events
-    user_events.token_buy = Pubkey::default();
-    user_events.token_sell = Pubkey::default();
-    user_events.order_id = 0;
-    user_events.length = 0;
-    user_events.in_use = 0;
     user_events.bump = ctx.bumps.order_events;
-    for i in 0..MAX_EVENTS {
-        user_events.oppo_user[i] = Pubkey::default();
-        user_events.buy_quantity[i] = 0;
-        user_events.sell_quantity[i] = 0;
-    }
+    user_events.init(
+        ctx.accounts.user.key(),
+        Pubkey::default(), // token_buy
+        Pubkey::default(), // token_sell
+        0, // order_id
+    );
     
     Ok(())
 }
@@ -71,7 +67,7 @@ pub struct RegisterUser<'info> {
         payer = user,
         seeds = [ORDER_EVENTS_SEED, user.key().as_ref()],
         bump,
-        space = 8 + (MAX_EVENTS * (32 + 8 + 8) + 32 + 32 + 8 + 8 + 1 + 1) // EventList: user[32*32] + buy_quantity[8*32] + sell_quantity[8*32] + token_buy[32] + token_sell[32] + order_id[8] + length[8] + pad[6] + in_use[1] + bump[1]
+        space = 10240 as usize
     )]
     pub order_events: Box<Account<'info, EventList>>,
 

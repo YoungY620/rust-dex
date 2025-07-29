@@ -102,6 +102,12 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
     // 转换结果到事件列表
     convert_to_event_list(event_list, result);
     // token_pair_queue_logging(buy_queue, sell_queue);
+    if event_list.length() == 0 {
+        event_list.close();
+        msg!("Event list closed after processing market order.");
+    } else {
+        msg!("Event list still has events, not closing.");
+    }
 
     Ok(())
 }

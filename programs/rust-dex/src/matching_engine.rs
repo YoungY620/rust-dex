@@ -150,9 +150,9 @@ impl<'a> MatchingEngine<'a> {
         let oppo_buy_quantity = best_sell_order.buy_quantity;
         if order.sell_quantity < oppo_buy_quantity {
             let buy_quantity = order.sell_quantity * best_sell_order.buy_price() as u64;
-                let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
-                oppo_sell_order_mut.sell_quantity -= buy_quantity;
-                oppo_sell_order_mut.buy_quantity -= order.sell_quantity;
+            let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
+            oppo_sell_order_mut.sell_quantity -= buy_quantity;
+            oppo_sell_order_mut.buy_quantity -= order.sell_quantity;
             result.push(Result::Ok(OrderSuccess::Filled { 
                 who: order.owner,
                 oppo_user: oppo_sell_order_mut.owner,

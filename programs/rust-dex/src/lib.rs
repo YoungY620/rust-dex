@@ -55,8 +55,8 @@ pub mod rust_dex {
         instructions::place_market_order_impl(ctx, base, quote, side, amount)
     }
 
-    pub fn consume_events(ctx: Context<ConsumeEvents>) -> Result<()> {
-        instructions::consume_events_impl(ctx)
+    pub fn consume_events(ctx: Context<ConsumeEvents>, opposite_user_key: Pubkey) -> Result<()> {
+        instructions::consume_event_impl(ctx, opposite_user_key)
     }
 
     pub fn close_dex_manager(_ctx: Context<CloseDexManager>) -> Result<()> {

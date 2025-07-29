@@ -101,6 +101,12 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     convert_to_event_list(event_list, result);
     // msg!("Event List: {:?}", event_list);
     token_pair_queue_logging(buy_queue, sell_queue);
+    if event_list.length() == 0 {
+        event_list.close();
+        msg!("Event list closed after placing order.");
+    } else {
+        msg!("Event list still has events, not closing.");
+    }
 
     Ok(())
 }
