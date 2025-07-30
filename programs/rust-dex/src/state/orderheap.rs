@@ -10,7 +10,7 @@ use crate::state::OrderNode;
 #[derive(Debug)]
 pub struct OrderHeap {
     pub orders: [OrderNode; ORDER_HEAP_CAPACITY], // 减少到16个订单
-    pub bitmap: [u8; ORDER_HEAP_CAPACITY],
+    pub bitmap: [u8; ORDER_HEAP_CAPACITY],  
     pub next_index: u64,
 }
 
@@ -18,6 +18,18 @@ pub struct OrderHeap {
 impl OrderHeap {
     pub fn len(&self) -> usize {
         self.next_index as usize
+    }
+
+    fn item_gt(&self, a: usize, b: usize) -> bool {
+        if a >= self.next_index as usize || b >= self.next_index as usize {
+            return false;
+        }
+
+        if self.bitmap[a] != self.bitmap[b] {
+            // If one is active and the other is not, the active one is greaters
+            return self.bitmap[a] > self.bitmap[b];
+        }
+        return self.orders[a].cmp(&self.orders[b]) == Ordering::Greater;
     }
 
     pub fn new() -> Self {
@@ -29,33 +41,60 @@ impl OrderHeap {
     }
     pub fn add_order(&mut self, order: OrderNode) -> Result<()> {
         let idx = self.next_index as usize;
-        if idx >= 16 {
+        if idx >= ORDER_HEAP_CAPACITY {
             return Err(ErrorCode::OrderHeapFull.into());
         }
         self.orders[idx] = order;
         self.bitmap[idx] = 1; // Set bit for active order
         let mut i = idx;
-        while i > 0 && self.orders[i].cmp(&self.orders[i - 1]) == Ordering::Greater {
-            // Swap orders to maintain priority
-            self.orders.swap(i, i - 1);
-            self.bitmap.swap(i , i - 1);
-            i -= 1;
+        while i > 0 {
+            let parent = (i - 1) / 2;
+            if self.item_gt(i, parent) {
+            // Swap orders to maintain heap property
+            self.orders.swap(i, parent);
+            self.bitmap.swap(i, parent);
+            i = parent;
+            } else {
+            break;
+            }
         }
         self.next_index += 1;
+        while self.bitmap[self.next_index as usize - 1] == 0 {
+            self.next_index -= 1; // Adjust next_index to skip unused slots
+        }
         Ok(())
     }
 
     pub fn remove_order(&mut self, id: u64) -> Result<OrderNode> {
         let idx = (0..self.next_index as usize).find(|&i| self.orders[i].id == id);
+        msg!("Removing order with id: {}", id);
         if let Some(index) = idx {
             let order = self.orders[index];
-            for i in index..(self.next_index as usize - 1) {
-                self.orders[i] = self.orders[i + 1];
-                self.bitmap[i] = self.bitmap[i + 1];
+            self.bitmap[index] = 0; // Mark the node as inactive
+            let mut i = index;
+            msg!("Removing order at index: {}", i);
+
+            // Push the node down to maintain the heap property
+            while i * 2 + 1 < self.next_index as usize {
+                let left = i * 2 + 1;
+                let right = i * 2 + 2;
+                let mut largest = i;
+
+                if left < self.next_index as usize && self.item_gt(left, largest) {
+                    largest = left;
+                }
+                if right < self.next_index as usize && self.item_gt(right, largest) {
+                    largest = right;
+                }
+                if largest == i {
+                    break;
+                }
+
+                self.orders.swap(i, largest);
+                self.bitmap.swap(i, largest);
+                i = largest;
             }
             self.next_index -= 1;
-            let last = self.next_index as usize;
-            self.bitmap[last] = 0; // Clear last bitmap bit
             Ok(order)
         } else {
             Err(ErrorCode::OrderNotFound.into())

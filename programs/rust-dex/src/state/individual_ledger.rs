@@ -36,12 +36,23 @@ impl IndividualLedgerAccount {
 }
 
 #[account]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct UserOrderbook {
     pub orders: [u128; MAX_TOKEN_MINTS],
     pub next_index: u16,
     pub bitmap: [u8; MAX_TOKEN_MINTS],
     pub bump: u8,
+}
+
+impl Default for UserOrderbook {
+    fn default() -> Self {
+        Self {
+            orders: [0; MAX_TOKEN_MINTS],
+            next_index: 0,
+            bitmap: [0; MAX_TOKEN_MINTS],
+            bump: 0,
+        }
+    }
 }
 
 impl UserOrderbook {

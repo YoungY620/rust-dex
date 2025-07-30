@@ -303,6 +303,7 @@ describe("rust-dex: cancel-order", () => {
     console.log("user1Orderbook: ", user1Orderbook);
     expect(sellBaseQueue.orderHeap.orders[0].id.toString()).to.equal("1")
     expect(sellBaseQueue.orderHeap.orders[1].id.toString()).to.equal("2")
+    console.log("sell base queue before cancel: ", sellBaseQueue);
     
     // 取消订单
     await cancelOrder(
@@ -314,6 +315,7 @@ describe("rust-dex: cancel-order", () => {
     );
 
     // 验证订单已被取消
+    console.log("sellBaseQueue after cancel: ", sellBaseQueue);
     sellBaseQueue = await program.account.tokenPairAccount.fetch(sellBaseQueuePda);
     expect(sellBaseQueue.orderHeap.nextIndex.add(new anchor.BN(1)).toNumber()).eq(initialOrderCount);
     expect(sellBaseQueue.orderHeap.orders[0].id.toString()).to.equal("2")

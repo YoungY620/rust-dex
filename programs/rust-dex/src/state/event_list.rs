@@ -16,7 +16,7 @@ pub struct Event {
 }
 
 #[account]
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct EventList {
     pub oppo_user: [Pubkey; MAX_EVENTS],
     pub buy_quantity: [u64; MAX_EVENTS],
@@ -32,6 +32,27 @@ pub struct EventList {
     pub length: u64,
     pub in_use: u8,
     pub bump: u8,
+}
+
+impl Default for EventList {
+    fn default() -> Self {
+        Self {
+            oppo_user: [Pubkey::default(); MAX_EVENTS],
+            buy_quantity: [0; MAX_EVENTS],
+            sell_quantity: [0; MAX_EVENTS],
+            rollback: [0; MAX_EVENTS],
+            oppo_order_id: [0; MAX_EVENTS],
+            filled: [0; MAX_EVENTS],
+            oppo_filled: [0; MAX_EVENTS],
+            user: Pubkey::default(),
+            token_buy: Pubkey::default(),
+            token_sell: Pubkey::default(),
+            order_id: 0,
+            length: 0,
+            in_use: 0,
+            bump: 0,
+        }
+    }
 }
 
 impl EventList {
