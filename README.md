@@ -40,7 +40,7 @@ Rust Dex is a simple DEX (Decentralized Exchange) written in Rust. It allows use
 ["individual_token_ledger", mint, user_pubkey] -> UserTokenLedgerPda
 ```
 
-### Traits
+### Traits & Core Components
 
 #### OrderHeap
 
@@ -81,6 +81,64 @@ OrderHeapImpl is a concrete implementation of the OrderHeap trait based on heap 
    - Removing pop best order: time complexity: O(log n)
    - Removing random order: time complexity: O(n)
    - Get best order time complexity: O(1)
+
+##### OrderNode
+
+The OrderNode class represents an order in the OrderHeap. It contains the order details and implements the necessary methods for the heap operations.
+
+```rust
+pub struct OrderNode {
+    pub id: u64,
+    pub buy_quantity: u64,
+    pub sell_quantity: u64,
+    pub buy_token: Pubkey,
+    pub sell_token: Pubkey,
+    pub owner: Pubkey,
+    pub timestamp: i64,
+}
+
+pub struct OrderHeapImpl {
+    pub orders: [OrderNode; ORDER_HEAP_CAPACITY], 
+    pub bitmap: [u8; ORDER_HEAP_CAPACITY],  
+    pub size: u64,
+}
+```
+
+The OrderNode contains no information about the order's side. So, the same order heap can be used for both buy and sell orders. 
+
+#### OrderBook
+
+OrderBook is a core component that manages buy and sell order queues for a specific trading pair. It handles order matching logic for both limit and market orders.
+
+##### Key Functions
+
+1. `process_order(&mut self, order: OrderRequest) -> OrderProcessResult` - Process incoming orders, including matching against existing orders
+2. `process_limit_order()` - Handle limit order placement and matching logic
+3. `process_market_order()` - Handle market order matching logic
+
+##### Order Matching Logic
+
+1. **Limit Orders**:
+   - Buy limit orders are added to the buy queue (max-heap based on price)
+   - Sell limit orders are added to the sell queue (min-heap based on price, but also max-heap if priced by the opposite-side token)
+   - When a new limit order is placed, it attempts to match with existing opposite orders
+   - Matching continues until the order is fully filled or no more matching orders exist
+   - If the newly-comming order is partially matched, the remaining portion remains in the order book
+
+2. **Market Orders**:
+   - Match immediately with existing orders in the opposite queue
+   - Buy market orders match with sell queue orders
+   - Sell market orders match with buy queue orders
+   - Execute at the price of existing orders in the queue
+   - If the newly-comming order is partially matched, the remaining portion will be dropped, and a 'no matching' event will be emitted.
+
+##### Order Storage and Logic Separation
+
+The OrderBook follows a clear separation between data storage and business logic:
+- Data is stored in OrderHeap structures for efficient order management
+- Business logic is implemented in the MatchingEngine which operates on the OrderHeap structures
+- When placing a new order, 2 OrderHeap instances are passed to the MatchingEngine constructor to create a new OrderBook instance
+- This design allows for clear separation of concerns and easier testing of matching logic
 
 ## Usage: Complete Interaction Flow
 
@@ -386,3 +444,11 @@ Final state:
 用户2 Token1 - 可用: 1010.00, 锁定: 0.00
 用户2 Token2 - 可用: 40000.00, 锁定: 0.00
 ```
+
+## References:
+
+- [anchor-zero-copy-example](https://github.com/solana-developers/anchor-zero-copy-example)
+- [Anchor](https://www.anchor-lang.com/docs)
+- [Openbook-v2](https://github.com/openbook-dex/openbook-v2)
+- [orderbook-rs](https://github.com/dgtony/orderbook-rs)
+
