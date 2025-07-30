@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::{
-    common::{ErrorCode, OrderRequest, OrderType, MAX_TOKEN_MINTS}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeap, TokenPairAccount}, DexManager, UserOrderbook, USER_ORDERBOOK_SEED
+    common::{ErrorCode, OrderRequest, OrderType}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeap, TokenPairAccount}, DexManager, UserOrderbook
 };
 use crate::instructions::common::token_pair_queue_logging;
 use crate::instructions::common::convert_to_event_list;

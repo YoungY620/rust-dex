@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
-use crate::{common::{ErrorCode, OrderRequest, OrderType, MAX_TOKEN_MINTS}, 
+use crate::{common::{ErrorCode, OrderRequest, OrderType}, 
     matching_engine::MatchingEngine, 
-    state::{EventList, OrderHeap}, DexManager, UserOrderbook, USER_ORDERBOOK_SEED};
+    state::{EventList, OrderHeap}, DexManager, UserOrderbook};
 use crate::state::{IndividualTokenLedgerAccount, TokenPairAccount};
 use crate::instructions::common::{token_pair_queue_logging, convert_to_event_list};
 use crate::state::ORDER_EVENTS_SEED;

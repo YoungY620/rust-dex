@@ -4,7 +4,6 @@ use crate::common::ErrorCode;
 
 pub const ORDER_EVENTS_SEED: &[u8] = b"order_events";
 
-// 新增Event结构体，包含所有事件字段
 #[derive(Debug)]
 pub struct Event {
     pub oppo_user: Pubkey,
@@ -117,7 +116,6 @@ impl EventList {
         Some((self.oppo_user[index], self.buy_quantity[index], self.sell_quantity[index]))
     }
     
-    // 修改pop方法返回完整的Event结构体
     pub fn pop(&mut self) -> Option<Event> {
         if self.length == 0 {
             return None;

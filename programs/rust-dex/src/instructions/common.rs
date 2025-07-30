@@ -22,11 +22,12 @@ pub fn convert_to_event_list(event_list: &mut EventList, result: Vec<std::result
         match res {
             Ok(success) => {
                 match success {
-                    OrderSuccess::Filled { who,
+                    OrderSuccess::Filled { 
+                        _who: _,
                         oppo_user,
-                        order_id,
+                        _order_id: _,
                         oppo_order_id,
-                        order_type,
+                        _order_type: _,
                         sell_quantity,
                         buy_quantity,
                         filled,
@@ -36,19 +37,18 @@ pub fn convert_to_event_list(event_list: &mut EventList, result: Vec<std::result
                             msg!("Add Event Failed: {:?}", e);
                         }
                     },
-                    _ => msg!("Order Success: {:?}", success),
                 }
             },
             Err(failure) => {
                 match failure {
                     crate::matching_engine::OrderFailure::NoMatch { 
-                        who, order_id, order_type, sell_quantity, buy_quantity 
+                        who, _order_id: _, _order_type: _, sell_quantity, buy_quantity 
                     }
                     | crate::matching_engine::OrderFailure::TooManyEvents { 
-                        who, order_id, order_type, sell_quantity, buy_quantity 
+                        who, _order_id: _, _order_type: _, sell_quantity, buy_quantity 
                     }
                     | crate::matching_engine::OrderFailure::OrderHeapFull { 
-                        who, order_id, order_type, sell_quantity, buy_quantity 
+                        who, _order_id: _, _order_type: _, sell_quantity, buy_quantity 
                     } => {
                         if let Err(e) = event_list.add_event(who, buy_quantity, sell_quantity, 1, 0, 0 , 0) {
                             msg!("Add Event Failed: {:?}", e);

@@ -1,52 +1,45 @@
-use std::{char::MAX, fmt::Debug, result::Result};
+use std::{fmt::Debug, result::Result};
 
-use anchor_lang::prelude::{Clock, Pubkey, SolanaSysvar};
+use anchor_lang::prelude::Pubkey;
 
 use crate::{common::{OrderRequest, OrderType, MAX_EVENTS}, state::{OrderHeap, OrderNode}, UserOrderbook};
 
 
 #[derive(Debug, Clone)]
 pub enum OrderSuccess {
-    Accepted{
-        order_id: u64,
-        order_type: OrderType,
-    },
     Filled{
-        who: Pubkey,
+        _who: Pubkey,
         oppo_user: Pubkey,
-        order_id: u64,
+        _order_id: u64,
         oppo_order_id: u64,
-        order_type: OrderType,
+        _order_type: OrderType,
         sell_quantity: u64,
         buy_quantity: u64,
         filled: bool,
         oppo_filled: bool,
     },
-    Cancelled{
-        order_id: u64,
-    }
 }
 
 #[derive(Debug, Clone)]
 pub enum OrderFailure {
     TooManyEvents{
         who: Pubkey,
-        order_id: u64,
-        order_type: OrderType,
+        _order_id: u64,
+        _order_type: OrderType,
         sell_quantity: u64,
         buy_quantity: u64,
     },
     OrderHeapFull{
         who: Pubkey,
-        order_id: u64,
-        order_type: OrderType,
+        _order_id: u64,
+        _order_type: OrderType,
         sell_quantity: u64,
         buy_quantity: u64,
     },
     NoMatch{
         who: Pubkey,
-        order_id: u64,
-        order_type: OrderType,
+        _order_id: u64,
+        _order_type: OrderType,
         sell_quantity: u64,
         buy_quantity: u64,
     },
@@ -90,18 +83,9 @@ impl<'a> MatchingEngine<'a> {
         );
         match order.order_type {
             OrderType::Limit => {
-                result.push(Result::Ok(OrderSuccess::Accepted {
-                    order_id: order.id,
-                    order_type: order.order_type,
-                }));
-
                 Self::process_limit_order(&mut self.buy_queue, &mut self.sell_queue, order_node, &mut result, self.user_orderbook);
             },
             OrderType::Market => {
-                result.push(Result::Ok(OrderSuccess::Accepted{
-                    order_id: order.id,
-                    order_type: order.order_type,
-                }));
                 Self::process_market_order(&mut self.buy_queue, &mut self.sell_queue, order_node, &mut result);
             }
         }
@@ -120,8 +104,8 @@ impl<'a> MatchingEngine<'a> {
             if result.len() + 2 > MAX_EVENTS  {
                 result.push(Result::Err(OrderFailure::TooManyEvents{
                     who: order.owner,
-                    order_id: order.id,
-                    order_type: OrderType::Limit,
+                    _order_id: order.id,
+                    _order_type: OrderType::Limit,
                     sell_quantity: order.sell_quantity,
                     buy_quantity: order.buy_quantity,
                 }));
@@ -135,14 +119,14 @@ impl<'a> MatchingEngine<'a> {
                 }
             }else {
                 if let Err(_) = buy_queue.add_order(order) {
-                    result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
+                    result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, _order_id: order.id, _order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
                 }else{
                     user_orderbook.add_order(order.id as u128).unwrap();
                 }
             }
         } else {
             if let Err(_) = buy_queue.add_order(order) {
-                result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, order_id: order.id, order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
+                result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, _order_id: order.id, _order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
             }else{
                 user_orderbook.add_order(order.id as u128).unwrap();
             }
@@ -163,11 +147,11 @@ impl<'a> MatchingEngine<'a> {
             oppo_sell_order_mut.sell_quantity -= buy_quantity;
             oppo_sell_order_mut.buy_quantity -= order.sell_quantity;
             result.push(Result::Ok(OrderSuccess::Filled { 
-                who: order.owner,
+                _who: order.owner,
                 oppo_user: oppo_sell_order_mut.owner,
-                order_id: order.id,
+                _order_id: order.id,
                 oppo_order_id: oppo_sell_order_mut.id,
-                order_type: order_type,
+                _order_type: order_type,
                 sell_quantity: order.sell_quantity,
                 buy_quantity: buy_quantity,
                 filled: true,
@@ -178,11 +162,11 @@ impl<'a> MatchingEngine<'a> {
             let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
             
             result.push(Result::Ok(OrderSuccess::Filled {
-                who: order.owner,
+                _who: order.owner,
                 oppo_user: oppo_sell_order_mut.owner,
-                order_id: order.id,
+                _order_id: order.id,
                 oppo_order_id: oppo_sell_order_mut.id,
-                order_type: order_type,
+                _order_type: order_type,
                 sell_quantity: oppo_sell_order_mut.buy_quantity,
                 buy_quantity: oppo_sell_order_mut.sell_quantity,
                 filled: false,  // 当前订单未完全成交
@@ -200,11 +184,11 @@ impl<'a> MatchingEngine<'a> {
         } else {
             let oppo_order_mut = sell_queue.get_best_order_mut().unwrap();
             result.push(Result::Ok(OrderSuccess::Filled {
-                who: order.owner,
+                _who: order.owner,
                 oppo_user: oppo_order_mut.owner,
                 oppo_order_id: oppo_order_mut.id,
-                order_id: order.id,
-                order_type: order_type,
+                _order_id: order.id,
+                _order_type: order_type,
                 sell_quantity: oppo_order_mut.buy_quantity,
                 buy_quantity: oppo_order_mut.sell_quantity,
                 filled: true,
@@ -227,8 +211,8 @@ impl<'a> MatchingEngine<'a> {
         if result.len() + 2 > MAX_EVENTS  {
                 result.push(Result::Err(OrderFailure::TooManyEvents{
                     who: order.owner,
-                    order_id: order.id,
-                    order_type: OrderType::Market,
+                    _order_id: order.id,
+                    _order_type: OrderType::Market,
                     sell_quantity: order.sell_quantity,
                     buy_quantity: order.buy_quantity,
                 }));
@@ -243,8 +227,8 @@ impl<'a> MatchingEngine<'a> {
         } else {
             result.push(Result::Err(OrderFailure::NoMatch{
                 who: order.owner,
-                order_id: order.id,
-                order_type: OrderType::Market,
+                _order_id: order.id,
+                _order_type: OrderType::Market,
                 sell_quantity: order.sell_quantity,
                 buy_quantity: order.buy_quantity,
             }));
@@ -291,40 +275,6 @@ mod tests {
     }
 
     #[test]
-    fn test_process_limit_order_no_match() {
-        let order_token = Pubkey::new_unique();
-        let price_order = Pubkey::new_unique();
-        let mut buy_queue = OrderHeap::new();
-        let mut sell_queue = OrderHeap::new();
-        let mut user_orderbook = UserOrderbook::default();
-
-        let mut orderbook = MatchingEngine::new(
-            order_token,
-            price_order,
-            &mut buy_queue,
-            &mut sell_queue,
-            &mut user_orderbook,
-        );
-
-        let order = create_test_order(1, 100, 50); // buy 100, sell 50
-        let result = orderbook.process_order(order);
-
-        // Should have 1 accepted result
-        assert_eq!(result.len(), 1);
-        match &result[0] {
-            Ok(OrderSuccess::Accepted { order_id, .. }) => {
-                assert_eq!(*order_id, 1);
-            }
-            _ => panic!("Expected Accepted result"),
-        }
-
-        // Buy queue should have 1 order
-        assert_eq!(buy_queue.next_index, 1);
-        // Sell queue should be empty
-        assert_eq!(sell_queue.next_index, 0);
-    }
-
-    #[test]
     fn test_process_market_order_no_match() {
         let buy_token = Pubkey::new_unique();
         let sell_token = Pubkey::new_unique();
@@ -350,8 +300,8 @@ mod tests {
         match &result[0] {
             Err(OrderFailure::NoMatch{
                 who,
-                order_id,
-                order_type,
+                _order_id: order_id,
+                _order_type: order_type,
                 sell_quantity,
                 buy_quantity,
             }) => {
