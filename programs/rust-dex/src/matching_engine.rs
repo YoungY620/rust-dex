@@ -1,10 +1,9 @@
 use std::{fmt::Debug, result::Result};
 
 use anchor_lang::{emit, prelude::Pubkey};
-use anchor_lang::prelude::*;
 use crate::common::NoMatchedOrderEvent;
 use crate::OrderHeap;
-use crate::{common::{AcceptedOrderEvent, FilledOrderEvent, OrderRequest, OrderType, PartiallyFilledOrderEvent, MAX_EVENTS}, state::{OrderHeapImpl, OrderNode}, UserOrderbook};
+use crate::{common::{AcceptedOrderEvent, FilledOrderEvent, OrderRequest, OrderType, PartiallyFilledOrderEvent, MAX_EVENTS}, state::OrderNode, UserOrderbook};
 
 
 #[derive(Debug, Clone)]
