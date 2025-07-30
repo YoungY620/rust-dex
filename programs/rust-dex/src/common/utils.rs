@@ -16,6 +16,13 @@ pub enum OrderType {
     Market
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum OrderSide {
+    Buy,
+    Sell
+}
+
 #[derive(Debug)]
 pub struct OrderRequest {
     pub id: u64,
@@ -26,6 +33,7 @@ pub struct OrderRequest {
     pub owner: Pubkey,
     pub timestamp: i64,
     pub order_type: OrderType,
+    pub order_side: OrderSide
 }
 
 impl OrderRequest {
@@ -38,6 +46,7 @@ impl OrderRequest {
         owner: Pubkey,
         timestamp: i64,
         order_type: OrderType,
+        order_side: OrderSide
     ) -> Self {
         Self {
             id,
@@ -48,6 +57,7 @@ impl OrderRequest {
             owner,
             timestamp,
             order_type,
+            order_side
         }
     }
 }

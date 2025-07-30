@@ -3,8 +3,6 @@ use crate::instructions::*;
 pub use crate::state::*;
 
 mod matching_engine;
-// mod orderqueue;
-// mod order;
 mod instructions;
 mod common;
 mod state;

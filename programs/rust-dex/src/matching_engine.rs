@@ -1,8 +1,8 @@
 use std::{fmt::Debug, result::Result};
 
-use anchor_lang::prelude::Pubkey;
+use anchor_lang::{emit, prelude::Pubkey};
 
-use crate::{common::{OrderRequest, OrderType, MAX_EVENTS}, state::{OrderHeap, OrderNode}, UserOrderbook};
+use crate::{common::{AcceptedOrderEvent, OrderRequest, OrderType, MAX_EVENTS}, state::{OrderHeap, OrderNode}, UserOrderbook};
 
 
 #[derive(Debug, Clone)]
@@ -83,6 +83,14 @@ impl<'a> MatchingEngine<'a> {
         );
         match order.order_type {
             OrderType::Limit => {
+                emit!(AcceptedOrderEvent{
+                    order_id: order_node.id,
+                    owner: order_node.owner,
+                    base_asset: order_node.buy_token,
+                    quote_asset: order_node.sell_token,
+                    price: order_node.sell_price(),
+                    amount: order_node.sell_quantity,
+                });
                 Self::process_limit_order(&mut self.buy_queue, &mut self.sell_queue, order_node, &mut result, self.user_orderbook);
             },
             OrderType::Market => {

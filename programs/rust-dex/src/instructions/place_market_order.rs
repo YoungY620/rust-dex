@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::{
-    common::{ErrorCode, OrderRequest, OrderType}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeap, TokenPairAccount}, DexManager, UserOrderbook
+    common::{ErrorCode, OrderRequest, OrderSide, OrderType}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeap, TokenPairAccount}, DexManager, UserOrderbook
 };
 use crate::instructions::common::token_pair_queue_logging;
 use crate::instructions::common::convert_to_event_list;
@@ -81,6 +81,7 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
         ctx.accounts.user.key(),
         Clock::get()?.unix_timestamp,
         OrderType::Market,  // 使用市价单类型
+        if side == "buy" { OrderSide::Buy } else { OrderSide::Sell }
     );
     
     msg!("Market Order Request: {:?}", order_request);

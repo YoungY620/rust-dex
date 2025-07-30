@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::{common::{ErrorCode, OrderRequest, OrderType}, 
+use crate::{common::{ErrorCode, OrderRequest, OrderSide, OrderType}, 
     matching_engine::MatchingEngine, 
     state::{EventList, OrderHeap}, DexManager, UserOrderbook};
 use crate::state::{IndividualTokenLedgerAccount, TokenPairAccount};
@@ -85,6 +85,7 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
         ctx.accounts.user.key(),
         Clock::get()?.unix_timestamp,
         OrderType::Limit,
+        if side == "buy" { OrderSide::Buy } else { OrderSide::Sell }
     );
     msg!("Order Request: {:?}", order_request);
     let user_orderbook: &mut UserOrderbook = &mut ctx.accounts.user_orderbook;    

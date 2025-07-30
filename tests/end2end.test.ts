@@ -267,6 +267,57 @@ describe("rust-dex: cancel-order", () => {
       user1QuoteTokenLedgerPda,
       user1OrderbookPda
     );
+    await placeLimitOrder(
+      program,
+      user1,
+      baseMint,
+      quoteMint,
+      "sell",
+      200,
+      5,
+      dexManagerPda,
+      buyBaseQueuePda,
+      sellBaseQueuePda,
+      user1EventsPda,
+      user1BaseTokenLedgerPda,
+      user1QuoteTokenLedgerPda,
+      user1OrderbookPda
+    );
+
+    // 检查订单已经创建
+    let sellBaseQueue = await program.account.tokenPairAccount.fetch(sellBaseQueuePda);
+    const initialOrderCount = sellBaseQueue.orderHeap.nextIndex.toNumber();
+    console.log("sellBaseQueue initial order count: ", initialOrderCount);
+    console.log("sellBaseQueue: ", sellBaseQueue);
+    console.log("orderNode: ", 
+      sellBaseQueue.orderHeap.orders[0].id.toString(),
+      sellBaseQueue.orderHeap.orders[0].sellQuantity.toString(),
+      sellBaseQueue.orderHeap.orders[0].buyQuantity.toString(),
+    );
     
+    // 获取订单ID (假设是第一个订单，ID为1)
+    const orderId = 1;
+    
+    // check user1's orderbook
+    const user1Orderbook = await program.account.userOrderbook.fetch(user1OrderbookPda);
+    console.log("user1Orderbook: ", user1Orderbook);
+    expect(sellBaseQueue.orderHeap.orders[0].id.toString()).to.equal("1")
+    expect(sellBaseQueue.orderHeap.orders[1].id.toString()).to.equal("2")
+    console.log("sell base queue before cancel: ", sellBaseQueue);
+    
+    // 取消订单
+    await cancelOrder(
+      program,
+      user1,
+      orderId,
+      sellBaseQueuePda,
+      user1OrderbookPda
+    );
+
+    // 验证订单已被取消
+    console.log("sellBaseQueue after cancel: ", sellBaseQueue);
+    sellBaseQueue = await program.account.tokenPairAccount.fetch(sellBaseQueuePda);
+    expect(sellBaseQueue.orderHeap.nextIndex.add(new anchor.BN(1)).toNumber()).eq(initialOrderCount);
+    expect(sellBaseQueue.orderHeap.orders[0].id.toString()).to.equal("2")
   });
 });
