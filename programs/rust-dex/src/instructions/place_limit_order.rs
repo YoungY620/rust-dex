@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::{common::{ErrorCode, OrderRequest, OrderSide, OrderType}, 
     matching_engine::MatchingEngine, 
-    state::{EventList, OrderHeap}, DexManager, UserOrderbook};
+    state::{EventList, OrderHeapImpl}, DexManager, UserOrderbook};
 use crate::state::{IndividualTokenLedgerAccount, TokenPairAccount};
 use crate::instructions::common::{token_pair_queue_logging, convert_to_event_list};
 use crate::state::ORDER_EVENTS_SEED;
@@ -39,7 +39,6 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     let token_buy = if side == "buy" { base } else { quote };
     let token_sell = if side == "sell" { base } else { quote };
     
-    msg!("Order details: buy_amount={}, sell_amount={}, price={}, owner={}", buy_amount, sell_amount, price, ctx.accounts.user.key());
     
     let selling_token_ledger = if side == "sell" {
         &mut ctx.accounts.user_base_token_ledger
@@ -63,12 +62,12 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
         ctx.accounts.quote_base_queue.load_mut()?
     };
     {
-        let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
-        let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
+        let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
+        let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
         token_pair_queue_logging(buy_queue, sell_queue);
     }
-    let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
-    let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
+    let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
+    let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
     let event_list: &mut EventList = &mut ctx.accounts.order_events;
 
     let next_order_id = ctx.accounts.dex_manager.next_sequence_number();
@@ -87,7 +86,6 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
         OrderType::Limit,
         if side == "buy" { OrderSide::Buy } else { OrderSide::Sell }
     );
-    msg!("Order Request: {:?}", order_request);
     let user_orderbook: &mut UserOrderbook = &mut ctx.accounts.user_orderbook;    
     let mut order_book = MatchingEngine::new(
         token_buy,
@@ -99,15 +97,10 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
     
     let result = order_book.process_order(order_request);
     
-    msg!("Process Order Result: {:?}", result);
     convert_to_event_list(event_list, result);
-    // msg!("Event List: {:?}", event_list);
-    token_pair_queue_logging(buy_queue, sell_queue);
+    // token_pair_queue_logging(buy_queue, sell_queue);
     if event_list.length() == 0 {
         event_list.close();
-        msg!("Event list closed after placing order.");
-    } else {
-        msg!("Event list still has events, not closing.");
     }
 
     Ok(())

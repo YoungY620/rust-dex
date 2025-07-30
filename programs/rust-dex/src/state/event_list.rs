@@ -61,7 +61,6 @@ impl EventList {
         self.token_buy = token_buy;
         self.token_sell = token_sell;
         self.order_id = order_id;
-        msg!("length = 0 in init");
         self.length = 0;
         self.in_use = 0; // Mark as not in use
         self.oppo_user = [Pubkey::default(); MAX_EVENTS];
@@ -74,7 +73,6 @@ impl EventList {
     }
 
     pub fn close(&mut self) {
-        msg!("length = 0 in close");
         self.length = 0;
         self.in_use = 0;
     }
@@ -91,7 +89,6 @@ impl EventList {
         self.token_buy = token_buy;
         self.token_sell = token_sell;
         self.order_id = order_id;
-        msg!("length = 0 in open");
         self.length = 0;
         self.in_use = 1; // Mark as in use
         Ok(())
@@ -119,7 +116,6 @@ impl EventList {
         self.oppo_filled[idx] = oppo_filled;
         self.oppo_order_id[idx] = oppo_order_id;
         self.length += 1;
-        msg!("length = {} in add_event", self.length);
         Ok(())
     }
 
@@ -143,7 +139,6 @@ impl EventList {
         }
         let idx = (self.length - 1) as usize;
         self.length -= 1;
-        msg!("length = {} in pop", self.length);
         
         Some(Event {
             oppo_user: self.oppo_user[idx],

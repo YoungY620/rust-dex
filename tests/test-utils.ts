@@ -247,12 +247,14 @@ export async function cancelOrder(
   orderId: number,
   baseQuoteQueuePda: PublicKey,
   userOrderbookPda: PublicKey,
+  userSellTokenLedgerPda: PublicKey,
 ) {
   await program.methods
     .cancelOrder(new anchor.BN(orderId))
     .accountsPartial({
       baseQuoteQueue: baseQuoteQueuePda,
       userOrderBook: userOrderbookPda,
+      userSellTokenLedger: userSellTokenLedgerPda,
       user: user.publicKey,
     })
     .signers([user])

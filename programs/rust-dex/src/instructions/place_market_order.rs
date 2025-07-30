@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::{
-    common::{ErrorCode, OrderRequest, OrderSide, OrderType}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeap, TokenPairAccount}, DexManager, UserOrderbook
+    common::{ErrorCode, OrderRequest, OrderSide, OrderType}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeapImpl, TokenPairAccount}, DexManager, UserOrderbook
 };
 use crate::instructions::common::token_pair_queue_logging;
 use crate::instructions::common::convert_to_event_list;
@@ -30,10 +30,7 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
         "sell" => (0, amount),
         _ => unreachable!(),
     };
-    
-    msg!("Market order details: buy_amount={}, sell_amount={}, available_balance={}, owner={}", 
-    buy_amount, sell_amount, available_balance, ctx.accounts.user.key());
-    
+        
     let mut buy_queue_account = if side == "buy" {
         ctx.accounts.base_quote_queue.load_mut()?
     } else {
@@ -47,12 +44,12 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
     };
     // 记录订单簿当前状态（调试用）
     {
-        let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
-        let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
+        let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
+        let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
         token_pair_queue_logging(buy_queue, sell_queue);
     }
-    let buy_queue: &mut OrderHeap = &mut buy_queue_account.order_heap;
-    let sell_queue: &mut OrderHeap = &mut sell_queue_account.order_heap;
+    let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
+    let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
     
     // balance check
     if selling_token_ledger.available_balance < sell_amount {
@@ -84,7 +81,6 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
         if side == "buy" { OrderSide::Buy } else { OrderSide::Sell }
     );
     
-    msg!("Market Order Request: {:?}", order_request);
     
     // 处理订单
     let user_orderbook: &mut UserOrderbook = &mut ctx.accounts.user_orderbook;
@@ -97,17 +93,13 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
     );
     
     let result = order_book.process_order(order_request);
-    msg!("Market Order Process Result: {:?}", result);
     
     // 转换结果到事件列表
     convert_to_event_list(event_list, result);
     // token_pair_queue_logging(buy_queue, sell_queue);
     if event_list.length() == 0 {
         event_list.close();
-        msg!("Event list closed after processing market order.");
-    } else {
-        msg!("Event list still has events, not closing.");
-    }
+    } 
 
     Ok(())
 }

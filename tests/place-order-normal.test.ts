@@ -320,14 +320,14 @@ describe("rust-dex: place-order-normal", () => {
     
     // get the events for user2
     const events = await program.account.eventList.fetch(user2EventsPda);
-    // console.log(events);
-    expect(events.length.toString()).to.equal(new anchor.BN(4).toString());   // there should be 4 events for user2
+    console.log(events);
+    expect(events.length.toString()).to.equal(new anchor.BN(4).toString());   // there should be 3 events for user2
 
     // Consume events for user2
     await consume_events(user2);
 
     const events2 = await program.account.eventList.fetch(user2EventsPda);
-    // console.log(events2);
+    console.log(events2);
     expect(events2.length.toString()).to.equal(new anchor.BN(3).toString()); 
   });
 

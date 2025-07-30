@@ -12,15 +12,12 @@ pub fn consume_event_impl(ctx: Context<ConsumeEvents>, opposite_user_key: Pubkey
     let user_token_outcome_ledger: &mut IndividualTokenLedgerAccount = &mut ctx.accounts.user_token_outcome_ledger;
     let opposite_user_token_income_ledger: &mut IndividualTokenLedgerAccount = &mut ctx.accounts.opposite_user_token_income_ledger;
     let opposite_user_token_outcome_ledger: &mut IndividualTokenLedgerAccount = &mut ctx.accounts.opposite_user_token_outcome_ledger;
-    msg!("Event list: {:?}", event_list);
     if event_list.is_closed() {
-        msg!("Event list is closed, nothing to consume.");
         return Ok(());
     }
 
     let next_event = event_list.pop();
     if next_event.is_none() {
-        msg!("No more events to consume.");
         return Ok(());
     }
     let next_event = next_event.unwrap();
@@ -30,33 +27,17 @@ pub fn consume_event_impl(ctx: Context<ConsumeEvents>, opposite_user_key: Pubkey
         user_token_outcome_ledger.available_balance += next_event.sell_quantity;
     }else {
         if next_event.oppo_user != opposite_user_key {
-            msg!("Event does not belong to the specified opposite user: {}, expected: {}", opposite_user_key, next_event.oppo_user);
             return Err(ErrorCode::InvalidArgument.into());
         }
         user_token_outcome_ledger.locked_balance -= next_event.sell_quantity;
         opposite_user_token_outcome_ledger.locked_balance -= next_event.buy_quantity;
         user_token_income_ledger.available_balance += next_event.buy_quantity;
         opposite_user_token_income_ledger.available_balance += next_event.sell_quantity;
-
-        // todo: emit filled event
-        msg!("Event: User {} bought {} of token {} from user {} for {} of token {}",
-            ctx.accounts.user.key(),
-            next_event.buy_quantity,
-            event_list.token_buy,
-            opposite_user_key,
-            next_event.sell_quantity,
-            event_list.token_sell,
-        );
     }
-    msg!("length: {}", event_list.length());
 
-    // todo: emit event
     if event_list.length() == 0 {
         event_list.close();
-        msg!("Event list closed after consuming events.");
-    } else {
-        msg!("Event list still has events, not closing.");
-    }
+    } 
     Ok(())
 }
 

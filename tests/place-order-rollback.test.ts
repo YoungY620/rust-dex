@@ -325,6 +325,7 @@ describe("rust-dex: place order rollback", () => {
     
     // get the events for user2
     const events = await program.account.eventList.fetch(user2EventsPda);
+    console.log(events);
     expect(events.length.toString()).to.equal(new anchor.BN(7).toString());   // there should be 4 events for user2
     expect(events.rollback[6].toString()).to.equal("1"); 
 

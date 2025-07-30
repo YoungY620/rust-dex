@@ -1,9 +1,10 @@
-use crate::state::OrderHeap;
+use crate::state::OrderHeapImpl;
 use crate::state::EventList;
 use crate::matching_engine::OrderSuccess;
+use crate::OrderHeap;
 use anchor_lang::prelude::*;
 
-pub fn token_pair_queue_logging(buy_queue: &OrderHeap, sell_queue: & OrderHeap) {
+pub fn token_pair_queue_logging(buy_queue: &OrderHeapImpl, sell_queue: & OrderHeapImpl) {
     msg!("queue length: buy={}, sell={}", buy_queue.len(), sell_queue.len());
     for i in 0..buy_queue.len() {
         let order = buy_queue.orders[i];

@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::state::{OrderHeap};
+use crate::state::{OrderHeapImpl};
 use crate::common::{ErrorCode};
 use crate::TokenPairAccount;
 // pub const ORDER_HEAP_CAPACITY: usize = 1024; // Capacity of the order heap
@@ -16,12 +16,12 @@ pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey,
     let token_pair = &mut ctx.accounts.token_pair.load_init()?;
     token_pair.buy_token = token1;
     token_pair.sell_token = token2;
-    token_pair.order_heap = OrderHeap::new(); // Initialize the order heap
+    token_pair.order_heap = OrderHeapImpl::new(); // Initialize the order heap
 
     let opposite_pair = &mut ctx.accounts.opposite_pair.load_init()?;
     opposite_pair.buy_token = token2;
     opposite_pair.sell_token = token1;
-    opposite_pair.order_heap = OrderHeap::new();
+    opposite_pair.order_heap = OrderHeapImpl::new();
 
     Ok(())
 }
