@@ -1,6 +1,6 @@
 # Rust Dex
 
-Rust Dex is a simple DEX (Decentralized Exchange) written in Rust. It allows users to trade tokens without the need for a centralized exchange.
+Rust Dex is an orderbook-based DEX (Decentralized Exchange) smart contract implemented using the Solana Anchor framework. It enables decentralized token trading through on-chain order matching and settlement.
 
 ## Features
 
@@ -9,6 +9,55 @@ Rust Dex is a simple DEX (Decentralized Exchange) written in Rust. It allows use
 - Support limited/market orders
 - Support cancelling orders
 - Support fully-filled & partially-filled orders
+
+## Installation
+
+### Prerequisites
+
+Ensure you have the following installed:
+- **Rust**: Install from [Rust official website](https://rustup.rs/)
+- **Solana CLI**: Install from [Solana official website](https://docs.solana.com/cli/install-solana-cli-tools)
+- **Anchor CLI**: Install via cargo
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/YoungY620/rust-dex
+cd rust-dex
+```
+
+### Install Dependencies
+
+#### 1. Install Rust (if not already installed)
+
+#### 2. Install Solana CLI
+
+#### 3. Install Anchor CLI
+```bash
+avm install latest
+avm use latest
+```
+
+#### 4. Install Node.js Dependencies (for TypeScript tests)
+```bash
+npm install
+```
+
+### Build the Project
+
+```bash
+anchor build
+```
+
+### Run Tests
+
+#### Automatic local validator (recommended)
+```bash
+anchor test                 # Run all tests
+anchor end-to-end-complete  # Run the end-to-end test (scenarios 1)
+anchor limit-order-cancel   # Run the end-to-end test (scenarios 2)
+```
+
 
 ## System Architecture Overview
 
