@@ -82,7 +82,7 @@ OrderHeapImpl is a concrete implementation of the OrderHeap trait based on heap 
    - Removing random order: time complexity: O(n)
    - Get best order time complexity: O(1)
 
-##### OrderNode
+#### OrderNode
 
 The OrderNode class represents an order in the OrderHeap. It contains the order details and implements the necessary methods for the heap operations.
 
@@ -104,7 +104,7 @@ pub struct OrderHeapImpl {
 }
 ```
 
-The OrderNode contains no information about the order's side. So, the same order heap can be used for both buy and sell orders. 
+The OrderNode contains no information about the order's side. So, the same order heap can be used for both buy and sell orders.
 
 #### OrderBook
 
@@ -140,11 +140,37 @@ The OrderBook follows a clear separation between data storage and business logic
 - When placing a new order, 2 OrderHeap instances are passed to the MatchingEngine constructor to create a new OrderBook instance
 - This design allows for clear separation of concerns and easier testing of matching logic
 
+## Security Design: Reentrancy Attack
+
+The system implements multiple mechanisms to prevent reentrancy attacks:
+
+### 1. State Update Before Transfer Principle
+
+- **Deposit Flow**: Execute `token::transfer()` to complete fund transfer first, then update user and pool balance states
+- **Withdrawal Flow**: Check and deduct user's available balance first, then execute `token::transfer()` to complete fund withdrawal
+- **Order Processing**: Immediately lock the corresponding token amount before placing orders (`available_balance → locked_balance`), perform actual transfers only after matching is complete
+
+### 2. Balance Locking Mechanism
+
+- Uses a dual-balance model: `available_balance` (available balance) and `locked_balance` (locked balance)
+- When placing orders: Deduct from `available_balance` and add to `locked_balance`
+- **Order Completion/Cancellation**: When orders are filled or cancelled, funds are released from `locked_balance` and either allocated to `available_balance` (for successful trades) or returned to the user's available balance (for cancellations)
+- **Withdrawal Restrictions**: Users can only withdraw from their `available_balance`; locked funds remain inaccessible until order resolution
+
+### 3. Event-Driven Architecture
+
+- Order matching generates events, final fund transfers occur only when events are consumed
+- **Event Atomicity**: Events are removed from the queue before processing in the `consume_events` instruction, ensuring each event is processed exactly once and preventing duplicate consumption
+- **Atomic Trade Processing**: Each trade matching and its corresponding asset transfers (including internal exchange transfers of both tokens) are processed atomically within a single event-consuming instruction, ensuring trade settlement consistency
+
+This design ensures that even if reentrancy attacks occur, attackers cannot exploit system state inconsistencies for profit.
+
 ## Usage: Complete Interaction Flow
 
 ### Overview
 
 Following document details the complete interaction flow of the system, including two core scenarios:
+
 1. **Complete Trading Flow**: From system initialization to order matching and event processing, test code: [tests/end-to-end-complete.test.ts](tests/end-to-end-complete.test.ts)
 2. **Partial Matching and Order Cancellation Flow**: Demonstrates order partial matching and remaining order cancellation mechanisms, test code: [tests/limit-order-cancel.test.ts](tests/end-to-end-complete.test.ts)
 
@@ -153,6 +179,7 @@ Following document details the complete interaction flow of the system, includin
 #### 1. System Initialization Phase
 
 ##### 1.1 Account and Token Creation
+
 ```typescript
 // Create key accounts
 mintAuthority = Keypair.generate();
