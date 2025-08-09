@@ -4,6 +4,8 @@ use anchor_lang::prelude::*;
 use crate::common::ErrorCode;
 use crate::common::ORDER_HEAP_CAPACITY;
 use crate::state::OrderNode;
+use crate::state::DictTreeMapImpl;
+use crate::DictTreeMap;
 
 pub trait OrderHeap {
     fn add_order(&mut self, order: OrderNode) -> Result<()>;
@@ -17,8 +19,8 @@ pub trait OrderHeap {
 #[zero_copy]
 #[derive(Debug)]
 pub struct OrderHeapImpl {
-    pub orders: [OrderNode; ORDER_HEAP_CAPACITY], // 减少到16个订单
-    pub bitmap: [u8; ORDER_HEAP_CAPACITY],  
+    pub orders: [OrderNode; ORDER_HEAP_CAPACITY],
+    pub idx_map: DictTreeMapImpl,
     pub size: u64,
 }
 
@@ -29,18 +31,13 @@ impl OrderHeapImpl {
             return false;
         }
 
-        if self.bitmap[a] != self.bitmap[b] {
-            // If one is active and the other is not, the active one is greaters
-            return self.bitmap[a] > self.bitmap[b];
-        }
         return self.orders[a].cmp(&self.orders[b]) == Ordering::Greater;
     }
-
     
     pub fn new() -> Self {
         OrderHeapImpl {
             orders: [OrderNode::default(); ORDER_HEAP_CAPACITY],
-            bitmap: [0; ORDER_HEAP_CAPACITY],
+            idx_map: DictTreeMapImpl::new(),
             size: 0,
         }
     }
@@ -53,41 +50,39 @@ impl OrderHeap for OrderHeapImpl {
         self.size as usize
     }
 
-
     fn add_order(&mut self, order: OrderNode) -> Result<()> {
         let idx = self.size as usize;
         if idx >= ORDER_HEAP_CAPACITY {
             return Err(ErrorCode::OrderHeapFull.into());
         }
         self.orders[idx] = order;
-        self.bitmap[idx] = 1; // Set bit for active order
         self.size += 1;
+        self.idx_map.insert(order.id, idx as u64)?;
 
         let mut i = idx;
         while i > 0 {
             let parent = (i - 1) / 2;
             if self.item_gt(i, parent) {
-            // Swap orders to maintain heap property
-            self.orders.swap(i, parent);
-            self.bitmap.swap(i, parent);
-            i = parent;
+                // Swap orders to maintain heap property
+                self.idx_map.swap(self.orders[i].id, self.orders[parent].id)?;
+                self.orders.swap(i, parent);
+                i = parent;
             } else {
-            break;
+                break;
             }
-        }
-        while self.bitmap[self.size as usize - 1] == 0 {
-            self.size -= 1; // Adjust next_index to skip unused slots
         }
         Ok(())
     }
 
     fn remove_order(&mut self, id: u64) -> Result<OrderNode> {
-        let idx = (0..self.size as usize).find(|&i| self.orders[i].id == id);
+        let idx = self.idx_map.get(id)?;
         if let Some(index) = idx {
+            let index = index as usize;
             let order = self.orders[index];
             let last_order = self.orders[self.size as usize - 1];
             self.orders[index] = last_order;
-            self.bitmap[self.size as usize - 1] = 0;
+            self.idx_map.remove(order.id)?;
+            self.idx_map.insert(last_order.id, index as u64)?;
             self.size -= 1;
 
             let mut i = index;
@@ -108,8 +103,8 @@ impl OrderHeap for OrderHeapImpl {
                     break;
                 }
 
+                self.idx_map.swap(self.orders[i].id, self.orders[largest].id)?;
                 self.orders.swap(i, largest);
-                self.bitmap.swap(i, largest);
                 i = largest;
             }
             Ok(order)
@@ -120,18 +115,14 @@ impl OrderHeap for OrderHeapImpl {
 
     fn get_best_order(&self) -> Option<&OrderNode> {
         for i in 0..self.size as usize {
-            if self.bitmap[i] == 1 {
-                return Some(&self.orders[i]);
-            }
+            return Some(&self.orders[i]);
         }
         None
     }
 
     fn get_best_order_mut(&mut self) -> Option<&mut OrderNode> {
         for i in 0..self.size as usize {
-            if self.bitmap[i] == 1 {
-                return Some(&mut self.orders[i]);
-            }
+            return Some(&mut self.orders[i]);
         }
         None
     }
@@ -141,6 +132,7 @@ impl OrderHeap for OrderHeapImpl {
     }
 
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,17 +239,4 @@ mod tests {
         assert_eq!(heap.len(), 0);
     }
 
-    #[test]
-    fn test_remove_order_updates_bitmap() {
-        let mut heap = OrderHeapImpl::new();
-        let order1 = make_order(1, 100);
-        let order2 = make_order(2, 200);
-        heap.add_order(order1).unwrap();
-        heap.add_order(order2).unwrap();
-
-        heap.remove_order(1).unwrap();
-        // Only order2 should be active
-        assert_eq!(heap.bitmap[0], 1);
-        assert_eq!(heap.bitmap[1], 0);
-    }
 }
