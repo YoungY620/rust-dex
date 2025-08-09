@@ -1,8 +1,14 @@
 use anchor_lang::prelude::*;
 use crate::common::MAX_EVENTS;
-use crate::common::ErrorCode;
 
 pub const ORDER_EVENTS_SEED: &[u8] = b"order_events";
+
+#[error_code]
+pub enum ErrorCode {
+    EventListFull,
+    EventListAlreadyInUse,
+    EventListClosed,
+}
 
 #[derive(Debug)]
 pub struct Event {
@@ -104,6 +110,9 @@ impl EventList {
         filled: u8,
 
     ) -> Result<()> {
+        if self.in_use == 0 {
+            return Err(ErrorCode::EventListClosed.into());
+        }
         if self.length as usize >= MAX_EVENTS {
             return Err(ErrorCode::EventListFull.into());
         }
@@ -127,7 +136,7 @@ impl EventList {
     }
 
     pub fn at(&self, index: usize) -> Option<(Pubkey, u64, u64)> {
-        if index >= self.length as usize {
+        if index >= self.length as usize || self.is_closed() {
             return None;
         }
         Some((self.oppo_user[index], self.buy_quantity[index], self.sell_quantity[index]))

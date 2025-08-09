@@ -1,14 +1,17 @@
 use anchor_lang::prelude::*;
 use crate::state::{OrderHeapImpl};
-use crate::common::{ErrorCode};
 use crate::TokenPairAccount;
 // pub const ORDER_HEAP_CAPACITY: usize = 1024; // Capacity of the order heap
 use crate::state::TOKEN_PAIR_SEED;
 
+#[error_code]
+pub enum ErrorCode {
+    InvalidTokenPair,
+}
 
 pub fn register_token_pair_impl(ctx: Context<RegisterTokenPair>, token1: Pubkey, token2: Pubkey) -> Result<()> {
     msg!("Registering token pair with base: {:?} and quote: {:?}", token1, token2);
-
+    
     if token1 == token2 {
         return Err(ErrorCode::InvalidTokenPair.into());
     }

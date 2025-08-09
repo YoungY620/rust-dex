@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::{common::{ErrorCode, OrderRequest, OrderSide, OrderType}, 
+use crate::{common::{OrderRequest, OrderSide, OrderType}, 
     matching_engine::MatchingEngine, 
     state::{EventList, OrderHeapImpl}, DexManager, UserOrderbook};
 use crate::state::{IndividualTokenLedgerAccount, TokenPairAccount};
@@ -7,6 +7,12 @@ use crate::instructions::common::{token_pair_queue_logging, convert_to_event_lis
 use crate::state::ORDER_EVENTS_SEED;
 use crate::state::DEX_MANAGER_SEED;
 use crate::state::TOKEN_PAIR_SEED;
+
+#[error_code]
+pub enum ErrorCode {
+    InvalidOrderSide,
+    InsufficientBalance,
+}
 
 pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote: Pubkey, side: String, price: f64, amount: u64) -> Result<()> {
     msg!("Placing limit order: {} for amount {}", side, amount);

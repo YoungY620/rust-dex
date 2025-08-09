@@ -4,7 +4,7 @@ use crate::{common::{CanceledOrderEvent, OrderType}, IndividualTokenLedgerAccoun
 
 
 pub fn cancel_order_impl(ctx: Context<CancelOrder>, order_id: u64) -> Result<()> {
-    let mut base_quote_queue = ctx.accounts.base_quote_queue.load_mut().unwrap();
+    let mut base_quote_queue = ctx.accounts.base_quote_queue.load_mut()?;
     let node = base_quote_queue.order_heap.remove_order(order_id)?;
     
     let user_orderbook = &mut ctx.accounts.user_order_book;

@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 use crate::{
-    common::{ErrorCode, OrderRequest, OrderSide, OrderType}, matching_engine::MatchingEngine, state::{EventList, IndividualTokenLedgerAccount, OrderHeapImpl, TokenPairAccount}, DexManager, UserOrderbook
+    common::{OrderRequest, OrderSide, OrderType}, 
+    matching_engine::MatchingEngine, 
+    state::{EventList, IndividualTokenLedgerAccount, OrderHeapImpl, TokenPairAccount}, 
+    DexManager, UserOrderbook
 };
 use crate::instructions::common::token_pair_queue_logging;
 use crate::instructions::common::convert_to_event_list;
@@ -8,6 +11,13 @@ use crate::state::ORDER_EVENTS_SEED;
 use crate::state::DEX_MANAGER_SEED;
 use crate::state::INDIVIDUAL_TOKEN_LEDGER_SEED;
 use crate::state::TOKEN_PAIR_SEED;
+
+
+#[error_code]
+pub enum ErrorCode {
+    InvalidOrderSide,
+    InsufficientBalance,
+}
 
 pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quote: Pubkey, side: String, amount: u64) -> Result<()> {
     msg!("Placing market order: {} for amount {}", side, amount);

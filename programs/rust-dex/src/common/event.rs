@@ -151,3 +151,19 @@ impl NoMatchedOrderEvent {
         }
     }
 }
+
+
+#[event]
+pub struct InternalErrorEvent {
+    pub error_message: String,
+    pub timestamp: i64,
+}
+
+impl InternalErrorEvent {
+    pub fn new(error_message: String) -> Self {
+        Self {
+            error_message,
+            timestamp: Clock::get().unwrap().unix_timestamp,
+        }
+    }
+}

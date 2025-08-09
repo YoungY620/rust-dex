@@ -3,9 +3,13 @@ use anchor_spl::token::{Token, TokenAccount};
 use crate::state::VaultTokenLedgerAccount;
 use crate::state::IndividualTokenLedgerAccount;
 use crate::market_seeds;
-use crate::common::ErrorCode;
 use crate::state::INDIVIDUAL_TOKEN_LEDGER_SEED;
 use crate::state::VAULT_TOKEN_LEDGER_SEED;
+
+#[error_code]
+pub enum ErrorCode {
+    InsufficientBalance,
+}
 
 pub fn withdraw_impl(ctx: Context<Withdraw>, _mint_account: Pubkey, amount: u64) -> Result<()> {
     msg!("Withdraw amount: {}", amount);

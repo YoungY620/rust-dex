@@ -3,8 +3,12 @@ use crate::state::EventList;
 use crate::state::ORDER_EVENTS_SEED;
 use crate::INDIVIDUAL_TOKEN_LEDGER_SEED;
 use crate::state::IndividualTokenLedgerAccount;
-use crate::common::ErrorCode;
 
+#[error_code]
+pub enum ErrorCode {
+    #[msg("The opposite user key need to be consistent to next event.")]
+    InconsistentUserKey,
+}
 
 pub fn consume_event_impl(ctx: Context<ConsumeEvents>, opposite_user_key: Pubkey) -> Result<()> {
     let event_list: &mut EventList = &mut ctx.accounts.event_list;
@@ -16,18 +20,18 @@ pub fn consume_event_impl(ctx: Context<ConsumeEvents>, opposite_user_key: Pubkey
         return Ok(());
     }
 
-    let next_event = event_list.pop();
-    if next_event.is_none() {
-        return Ok(());
-    }
-    let next_event = next_event.unwrap();
-    
+    let next_event;
+    match event_list.pop() {
+        Some(event) => next_event = event,
+        None => return Ok(()),
+    };
+
     if next_event.rollback {
         user_token_outcome_ledger.locked_balance -= next_event.sell_quantity;
         user_token_outcome_ledger.available_balance += next_event.sell_quantity;
     }else {
         if next_event.oppo_user != opposite_user_key {
-            return Err(ErrorCode::InvalidArgument.into());
+            return Err(ErrorCode::InconsistentUserKey.into());
         }
         user_token_outcome_ledger.locked_balance -= next_event.sell_quantity;
         opposite_user_token_outcome_ledger.locked_balance -= next_event.buy_quantity;

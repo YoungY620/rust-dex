@@ -1,11 +1,16 @@
 use std::cmp::Ordering;
 
 use anchor_lang::prelude::*;
-use crate::common::ErrorCode;
 use crate::common::ORDER_HEAP_CAPACITY;
 use crate::state::OrderNode;
 use crate::state::DictTreeMapImpl;
 use crate::DictTreeMap;
+
+#[error_code]
+pub enum ErrorCode {
+    OrderHeapFull,
+    OrderNotFound,
+}
 
 pub trait OrderHeap {
     fn add_order(&mut self, order: OrderNode) -> Result<()>;

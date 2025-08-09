@@ -1,9 +1,10 @@
 use std::{fmt::Debug, result::Result};
 
+use anchor_lang::error_code;
 use anchor_lang::{emit, prelude::Pubkey};
 use crate::common::NoMatchedOrderEvent;
 use crate::OrderHeap;
-use crate::{common::{AcceptedOrderEvent, FilledOrderEvent, OrderRequest, OrderType, PartiallyFilledOrderEvent, MAX_EVENTS}, state::OrderNode, UserOrderbook};
+use crate::{common::{AcceptedOrderEvent, FilledOrderEvent, OrderRequest, OrderType, PartiallyFilledOrderEvent, InternalErrorEvent, MAX_EVENTS}, state::OrderNode, UserOrderbook};
 
 
 #[derive(Debug, Clone)]
@@ -19,6 +20,15 @@ pub enum OrderSuccess {
         filled: bool,
         oppo_filled: bool,
     },
+}
+
+#[error_code]
+pub enum ErrorCode {
+    OrderNotFound,
+    OrderHeapFull,
+    TooManyEvents,
+    NoMatch,
+    
 }
 
 #[derive(Debug, Clone)]
@@ -120,17 +130,28 @@ impl<'a> MatchingEngine<'a> {
                     Self::process_limit_order(buy_queue, sell_queue, order, result, user_orderbook);
                 }
             }else {
-                if let Err(_) = buy_queue.add_order(order) {
-                    result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, _order_id: order.id, _order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
-                }else{
-                    user_orderbook.add_order(order.id as u128).unwrap();
+                match user_orderbook.add_order(order.id as u128) {
+                    Ok(_) => {
+                        if let Err(_) = buy_queue.add_order(order) {
+                            user_orderbook.try_remove_order(order.id as u128);
+                            result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, _order_id: order.id, _order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
+                        }
+                    },
+                    Err(e) => {
+                        emit!(InternalErrorEvent::new(format!("Failed to add order to user orderbook: {}", e)));
+                    }
                 }
             }
         } else {
-            if let Err(_) = buy_queue.add_order(order) {
-                result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, _order_id: order.id, _order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
-            }else{
-                user_orderbook.add_order(order.id as u128).unwrap();
+            match user_orderbook.add_order(order.id as u128) {
+                Ok(_) => {
+                    if let Err(_) = buy_queue.add_order(order) {
+                        result.push(Result::Err(OrderFailure::OrderHeapFull { who: order.owner, _order_id: order.id, _order_type: OrderType::Limit, sell_quantity: order.sell_quantity, buy_quantity: order.buy_quantity }));
+                    }
+                },
+                Err(e) => {
+                    emit!(InternalErrorEvent::new(format!("Failed to add order to user orderbook: {}", e)));
+                }
             }
         }
     }
@@ -141,11 +162,28 @@ impl<'a> MatchingEngine<'a> {
         result: &mut OrderProcessResult,
         order_type: OrderType
     ) -> bool {
-        let best_sell_order = sell_queue.get_best_order().unwrap();
+        let best_sell_result = sell_queue.get_best_order();
+        let best_sell_order: &OrderNode;
+        match best_sell_result {
+            Some(best_sell_inner) => {
+                best_sell_order = best_sell_inner;
+            },
+            None => {
+                return false;
+            }
+        }
         let oppo_buy_quantity = best_sell_order.buy_quantity;
         if order.sell_quantity < oppo_buy_quantity {
             let buy_quantity = order.sell_quantity * best_sell_order.buy_price() as u64;
-            let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
+            let oppo_sell_order_mut: &mut OrderNode;
+            match sell_queue.get_best_order_mut() {
+                Some(oppo_sell_inner) => {
+                    oppo_sell_order_mut = oppo_sell_inner;
+                },
+                None => {
+                    return false;
+                }
+            }
             oppo_sell_order_mut.sell_quantity -= buy_quantity;
             oppo_sell_order_mut.buy_quantity -= order.sell_quantity;
             result.push(Result::Ok(OrderSuccess::Filled { 
@@ -171,8 +209,12 @@ impl<'a> MatchingEngine<'a> {
             ));
             return true;
         } else if order.sell_quantity > oppo_buy_quantity {
-            let oppo_sell_order_mut = sell_queue.get_best_order_mut().unwrap();
-            
+            let oppo_sell_order_mut: &mut OrderNode;
+            match sell_queue.get_best_order_mut() {
+                Some(order) => oppo_sell_order_mut = order,
+                None => return false,
+            }
+
             result.push(Result::Ok(OrderSuccess::Filled {
                 _who: order.owner,
                 oppo_user: oppo_sell_order_mut.owner,
@@ -204,7 +246,11 @@ impl<'a> MatchingEngine<'a> {
             }
             return false;
         } else {
-            let oppo_order_mut = sell_queue.get_best_order_mut().unwrap();
+            let oppo_order_mut: &mut OrderNode;
+            match sell_queue.get_best_order_mut() {
+                Some(order) => oppo_order_mut = order,
+                None => return false,
+            }
             result.push(Result::Ok(OrderSuccess::Filled {
                 _who: order.owner,
                 oppo_user: oppo_order_mut.owner,
