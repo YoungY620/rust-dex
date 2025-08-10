@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
 use crate::{
     common::{OrderRequest, OrderSide, OrderType}, 
+    instructions::common::token_pair_queue_logging, 
     matching_engine::MatchingEngine, 
     state::{EventList, IndividualTokenLedgerAccount, OrderHeapImpl, TokenPairAccount}, 
     DexManager, UserOrderbook
 };
-use crate::instructions::common::token_pair_queue_logging;
 use crate::instructions::common::convert_to_event_list;
 use crate::state::ORDER_EVENTS_SEED;
 use crate::state::DEX_MANAGER_SEED;
@@ -52,12 +52,12 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
     } else {
         ctx.accounts.quote_base_queue.load_mut()?
     };
-    // // 记录订单簿当前状态（调试用）
-    // {
-    //     let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
-    //     let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
-    //     token_pair_queue_logging(buy_queue, sell_queue);
-    // }
+    // 记录订单簿当前状态（调试用）
+    {
+        let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
+        let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
+        token_pair_queue_logging(buy_queue, sell_queue);
+    }
     let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
     let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
     
