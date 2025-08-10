@@ -313,7 +313,7 @@ describe("rust-dex: place order rollback", () => {
         baseMint,
         quoteMint,
         "buy",
-        50,
+        70,
         dexManagerPda,
         buyBaseQueuePda,
         sellBaseQueuePda,

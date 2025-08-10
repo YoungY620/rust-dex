@@ -52,12 +52,12 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
     } else {
         ctx.accounts.quote_base_queue.load_mut()?
     };
-    // 记录订单簿当前状态（调试用）
-    {
-        let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
-        let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
-        token_pair_queue_logging(buy_queue, sell_queue);
-    }
+    // // 记录订单簿当前状态（调试用）
+    // {
+    //     let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
+    //     let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
+    //     token_pair_queue_logging(buy_queue, sell_queue);
+    // }
     let buy_queue: &mut OrderHeapImpl = &mut buy_queue_account.order_heap;
     let sell_queue: &mut OrderHeapImpl = &mut sell_queue_account.order_heap;
     
@@ -102,7 +102,9 @@ pub fn place_market_order_impl(ctx: Context<PlaceMarketOrder>, base: Pubkey, quo
         user_orderbook,
     );
     
-    let result = order_book.process_order(order_request);
+    let result = order_book.process_order(
+        order_request, side == "sell"
+    );
     
     // 转换结果到事件列表
     convert_to_event_list(event_list, result);

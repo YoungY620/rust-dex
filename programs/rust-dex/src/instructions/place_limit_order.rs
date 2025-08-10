@@ -20,25 +20,15 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
         return Err(ErrorCode::InvalidOrderSide.into());
     }
     
-    // All inputs are in minimum units:
-    // - amount: in base token minimum units (e.g., lamports for SOL)
-    // - price: exchange rate between minimum units (quote_units per base_unit)
-    // For buy: need to pay (amount * price) quote tokens
-    // For sell: will receive (amount * price) quote tokens
-    
     let buy_amount = if side == "buy" { 
         amount 
     } else { 
-        // For sell orders, amount is what we're selling (base tokens)
-        // We'll receive (amount * price) quote tokens
         (amount as f64 * price) as u64
     };
     
     let sell_amount = if side == "sell" { 
         amount 
     } else { 
-        // For buy orders, amount is what we want to buy (base tokens)
-        // We need to pay (amount * price) quote tokens
         (amount as f64 * price) as u64
     };
     
@@ -101,8 +91,10 @@ pub fn place_limit_order_impl(ctx: Context<PlaceLimitOrder>, base: Pubkey, quote
         user_orderbook,
     );
     
-    let result = order_book.process_order(order_request);
-    
+    let result = order_book.process_order(
+        order_request, side == "sell"
+    );
+
     convert_to_event_list(event_list, result);
     // token_pair_queue_logging(buy_queue, sell_queue);
     if event_list.length() == 0 {

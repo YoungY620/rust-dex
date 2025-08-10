@@ -80,7 +80,7 @@ impl<'a> MatchingEngine<'a> {
         }
     }
     
-    pub fn process_order(&mut self, order: OrderRequest) -> OrderProcessResult {
+    pub fn process_order(&mut self, order: OrderRequest, is_sell: bool) -> OrderProcessResult {
         let mut result: OrderProcessResult = Vec::new();
         let order_node = OrderNode::new(
             order.id,
@@ -94,11 +94,11 @@ impl<'a> MatchingEngine<'a> {
         match order.order_type {
             OrderType::Limit => {
                 emit!(AcceptedOrderEvent::from_order_request(&order));
-                Self::process_limit_order(self.buy_queue, self.sell_queue, order_node, &mut result, self.user_orderbook);
+                Self::process_limit_order(self.buy_queue, self.sell_queue, order_node, &mut result, self.user_orderbook, is_sell);
             },
             OrderType::Market => {
                 emit!(AcceptedOrderEvent::from_order_request(&order));
-                Self::process_market_order(self.buy_queue, self.sell_queue, order_node, &mut result);
+                Self::process_market_order(self.buy_queue, self.sell_queue, order_node, &mut result, is_sell);
             }
         }
         result
@@ -110,6 +110,7 @@ impl<'a> MatchingEngine<'a> {
         mut order: OrderNode,
         result: &mut OrderProcessResult,
         user_orderbook: &mut UserOrderbook,
+        is_sell: bool,
     ) { 
         if let Some(sell_order) = sell_queue.get_best_order() {
             let match_available = sell_order.buy_price() >= order.sell_price();
@@ -124,10 +125,10 @@ impl<'a> MatchingEngine<'a> {
                 return; 
             }
             if match_available {
-                let completed = Self::order_match(&mut order, sell_queue, result, OrderType::Limit);
-                
+                let completed = Self::order_match(&mut order, sell_queue, result, OrderType::Limit, is_sell);
+
                 if !completed {
-                    Self::process_limit_order(buy_queue, sell_queue, order, result, user_orderbook);
+                    Self::process_limit_order(buy_queue, sell_queue, order, result, user_orderbook, is_sell);
                 }
             }else {
                 match user_orderbook.add_order(order.id as u128) {
@@ -156,7 +157,7 @@ impl<'a> MatchingEngine<'a> {
         }
     }
 
-    fn order_match(
+    fn order_match_sell(
         order: &mut OrderNode,
         sell_queue: &mut dyn OrderHeap,
         result: &mut OrderProcessResult,
@@ -205,7 +206,7 @@ impl<'a> MatchingEngine<'a> {
                 oppo_sell_order_mut.sell_token,
                 order.sell_quantity,
                 buy_quantity,
-                OrderType::Market,
+                OrderType::Limit,
             ));
             return true;
         } else if order.sell_quantity > oppo_buy_quantity {
@@ -239,7 +240,7 @@ impl<'a> MatchingEngine<'a> {
                 order.sell_token,
                 oppo_sell_order_mut.sell_quantity,
                 oppo_sell_order_mut.buy_quantity,
-                OrderType::Limit,
+                order_type,
             ));
             if let Err(_) = sell_queue.remove_order(opposite_order_id) {
                 result.push(Result::Err(OrderFailure::OrderNotFound{_order_id: opposite_order_id}));
@@ -272,11 +273,140 @@ impl<'a> MatchingEngine<'a> {
         }
     }
 
+    fn order_match_buy(
+        order: &mut OrderNode,
+        sell_queue: &mut dyn OrderHeap,
+        result: &mut OrderProcessResult,
+        order_type: OrderType
+    ) -> bool {
+        let best_sell_order: &OrderNode;
+        match sell_queue.get_best_order() {
+            Some(best_sell_inner) => {
+                best_sell_order = best_sell_inner;
+            },
+            None => {
+                return false;
+            }
+        }
+        let oppo_sell_quantity = best_sell_order.sell_quantity;
+        if order.buy_quantity < oppo_sell_quantity {
+            let sell_quantity = order.buy_quantity * best_sell_order.sell_price() as u64;
+            let oppo_sell_order_mut: &mut OrderNode;
+            match sell_queue.get_best_order_mut() {
+                Some(oppo_sell_inner) => {
+                    oppo_sell_order_mut = oppo_sell_inner;
+                },
+                None => {
+                    return false;
+                }
+            }
+            oppo_sell_order_mut.buy_quantity -= sell_quantity;
+            oppo_sell_order_mut.sell_quantity -= order.buy_quantity;
+            result.push(Result::Ok(OrderSuccess::Filled { 
+                _who: order.owner,
+                oppo_user: oppo_sell_order_mut.owner,
+                _order_id: order.id,
+                oppo_order_id: oppo_sell_order_mut.id,
+                _order_type: order_type,
+                sell_quantity: sell_quantity,
+                buy_quantity: order.buy_quantity,
+                filled: true,
+                oppo_filled: false,  // 对方订单未完全成交
+            }));
+            emit!(FilledOrderEvent::from_order_node(order, order_type));
+            emit!(PartiallyFilledOrderEvent::from_order_node(
+                oppo_sell_order_mut.id,
+                oppo_sell_order_mut.owner,
+                oppo_sell_order_mut.buy_token,
+                oppo_sell_order_mut.sell_token,
+                sell_quantity,
+                order.buy_quantity,
+                OrderType::Limit,
+            ));
+            return true;
+        } else if order.buy_quantity > oppo_sell_quantity {
+            let oppo_sell_order_mut: &mut OrderNode;
+            match sell_queue.get_best_order_mut() {
+                Some(order) => oppo_sell_order_mut = order,
+                None => return false,
+            }
+
+            result.push(Result::Ok(OrderSuccess::Filled {
+                _who: order.owner,
+                oppo_user: oppo_sell_order_mut.owner,
+                _order_id: order.id,
+                oppo_order_id: oppo_sell_order_mut.id,
+                _order_type: order_type,
+                sell_quantity: oppo_sell_order_mut.buy_quantity,
+                buy_quantity: oppo_sell_order_mut.sell_quantity,
+                filled: false,  // 当前订单未完全成交
+                oppo_filled: true,  // 对方订单已完全成交
+            }));
+            order.sell_quantity -= oppo_sell_order_mut.buy_quantity;
+            order.buy_quantity -= oppo_sell_order_mut.sell_quantity;
+
+            let opposite_order_id = oppo_sell_order_mut.id;
+            emit!(FilledOrderEvent::from_order_node(oppo_sell_order_mut, OrderType::Limit));
+            emit!(PartiallyFilledOrderEvent::from_order_node(
+                order.id,
+                order.owner,
+                order.buy_token,
+                order.sell_token,
+                oppo_sell_order_mut.sell_quantity,
+                oppo_sell_order_mut.buy_quantity,
+                order_type,
+            ));
+            if let Err(_) = sell_queue.remove_order(opposite_order_id) {
+                result.push(Result::Err(OrderFailure::OrderNotFound{_order_id: opposite_order_id}));
+            }
+            return false;
+        } else {
+            let oppo_order_mut: &mut OrderNode;
+            match sell_queue.get_best_order_mut() {
+                Some(order) => oppo_order_mut = order,
+                None => return false,
+            }
+            result.push(Result::Ok(OrderSuccess::Filled {
+                _who: order.owner,
+                oppo_user: oppo_order_mut.owner,
+                oppo_order_id: oppo_order_mut.id,
+                _order_id: order.id,
+                _order_type: order_type,
+                sell_quantity: oppo_order_mut.buy_quantity,
+                buy_quantity: oppo_order_mut.sell_quantity,
+                filled: true,
+                oppo_filled: true,  // 双方订单完全成交
+            }));
+            emit!(FilledOrderEvent::from_order_node(oppo_order_mut, OrderType::Limit));
+            emit!(FilledOrderEvent::from_order_node(order, order_type));
+            let opposite_order_id = oppo_order_mut.id;
+            if let Err(_) = sell_queue.remove_order(opposite_order_id) {
+                result.push(Result::Err(OrderFailure::OrderNotFound{_order_id: opposite_order_id}));
+            }
+            return true;
+        }
+    }
+
+    fn order_match(
+        order: &mut OrderNode,
+        sell_queue: &mut dyn OrderHeap,
+        result: &mut OrderProcessResult,
+        order_type: OrderType,
+        is_sell: bool,
+    ) -> bool {
+        if is_sell {
+            Self::order_match_sell(order, sell_queue, result, order_type)
+        } else {
+            Self::order_match_buy(order, sell_queue, result, order_type)
+        }
+    }
+
     fn process_market_order(
         buy_queue: &mut dyn OrderHeap,
         sell_queue: &mut dyn OrderHeap,
         mut order: OrderNode,
-        result: &mut OrderProcessResult
+        result: &mut OrderProcessResult,
+        is_sell: bool
     ) {
         if result.len() + 2 > MAX_EVENTS  {
                 result.push(Result::Err(OrderFailure::TooManyEvents{
@@ -289,10 +419,10 @@ impl<'a> MatchingEngine<'a> {
                 return;
         } 
         if let Some(_opposite_order) = sell_queue.get_best_order() {
-            let completed = Self::order_match(&mut order, sell_queue, result, OrderType::Market);
+            let completed = Self::order_match(&mut order, sell_queue, result, OrderType::Market, is_sell);
 
             if !completed {
-                Self::process_market_order(buy_queue, sell_queue, order, result);
+                Self::process_market_order(buy_queue, sell_queue, order, result, is_sell);
             }
         } else {
             result.push(Result::Err(OrderFailure::NoMatch{
